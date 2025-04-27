@@ -1,0 +1,29 @@
+{
+  "packages": [
+    {
+      "name": "Your Package Name",
+      "version": "1.0.0",
+      "description": "Package description",
+      "type": "app/extension/webapp",
+      "commands": {
+        "windows": [
+          "Running Commands"
+        ],
+        "linux": [
+         "Running Commands"
+        ]
+      },
+      "installCommand": {
+        "windows": [
+          "Installation commands For Windows",
+          "git clone https://github.com/username/repository-name"
+        ],
+        "linux": [
+          "Installation commands For Linux",
+          "git clone https://github.com/username/repository-name"
+
+        ]
+      }
+    }
+  ]
+}

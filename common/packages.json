@@ -1,0 +1,355 @@
+  {
+    "packages": [
+       {
+        "name": "YO",
+        "version": "1.0.0",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "echo 'Cloning repository...'",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      },
+      {
+        "name": "Dummy101",
+        "version": "1.0.0",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "echo 'Cloning repository...'",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      },
+      {
+        "name": "Dummy",
+        "version": "1.0.0",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "echo 'Cloning repository...'",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      },
+      {
+        "name": "crypto-tracker",
+        "version": "1.0.0",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "echo 'Cloning repository...'",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      },
+      {
+        "name": "K9",
+        "version": "1.0.1",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "echo 'Cloning repository...'",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      },
+      
+      {
+        "name": "git",
+        "version": "1.0.1",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "echo 'Cloning repository...'",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      },
+      {
+        "name": "ARAISE",
+        "version": "1.0.0",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "echo 'Cloning repository...'",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      },
+      {
+        "name": "202",
+        "version": "1.0.1",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "echo 'Cloning repository...'",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      },
+      {
+        "name": "000",
+        "version": "1.0.1",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "Cloning repository...",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      },
+      {
+        "name": "Dheeraj",
+        "version": "1.0.1",
+        "description": "A cryptocurrency price tracker",
+        "type": "app",
+        "commands": {
+          "windows": [
+            "powershell -Command \"& { Set-Location -Path 'crypto-tracker'; uv run streamlit run app.py }\""
+          ],
+          "linux": [
+            "cd crypto-tracker",
+            "source .venv/bin/activate",
+            "uv run streamlit run app.py"
+          ]
+        },
+        "installCommand": {
+          "windows": [
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "powershell -Command \"Set-Location -Path crypto-tracker\"",
+            "pip install uv",
+            "uv venv",
+            "powershell -Command \"& { . '.venv/Scripts/Activate.ps1'; uv build }\""
+          ],
+          "linux": [
+            "echo 'Cloning repository...'",
+            "git clone https://github.com/Araise25/test crypto-tracker",
+            "command -v python3 || { echo 'Python3 is not installed. Please install Python3 first.'; exit 1; }",
+            "command -v uv || python3 -m pip install uv",
+            "cd crypto-tracker",
+            "uv venv",
+            "source .venv/bin/activate",
+            "uv build"
+          ]
+        }
+      }
+    ]
+  }

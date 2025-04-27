@@ -1,0 +1,78 @@
+.TH ARAISE 1 "2024" "Araise Package Manager" "User Commands"
+.SH NAME
+araise \- package manager for installing and managing Araise packages
+.SH SYNOPSIS
+.B araise
+[\fICOMMAND\fR] [\fIPACKAGE\fR]
+.SH DESCRIPTION
+.B araise
+is a package manager that allows users to install, manage, and run various types of packages including applications, web applications, and browser extensions.
+.SH COMMANDS
+.TP
+.B help
+Display help information about available commands.
+.TP
+.B install \fIPACKAGE\fR
+Install the specified package.
+.TP
+.B uninstall \fIPACKAGE\fR
+Remove the specified package from the system.
+.TP
+.B list
+Display all installed packages.
+.TP
+.B update
+Update the package registry from remote repository.
+.TP
+.B available
+Show all available packages that can be installed.
+.TP
+.B \fIPACKAGE\fR
+Run the specified package if it's installed.
+.SH PACKAGE TYPES
+.TP
+.B Applications
+Standard applications that can be installed and run locally.
+.TP
+.B Web Applications
+Browser-based applications that run in your default web browser.
+.TP
+.B Browser Extensions
+Extensions that can be installed in supported web browsers.
+.SH FILES
+.TP
+.I ~/.araise/
+Base directory for all Araise-related files
+.TP
+.I ~/.araise/packages/
+Directory containing installed packages
+.TP
+.I ~/.araise/packages.json
+Package registry containing available packages
+.SH ENVIRONMENT
+.TP
+.B ARAISE_DIR
+Base directory for Araise (defaults to ~/.araise)
+.SH EXAMPLES
+.TP
+Install a package:
+.B araise install mypackage
+.TP
+List installed packages:
+.B araise list
+.TP
+Run an installed package:
+.B araise mypackage
+.SH EXIT STATUS
+.TP
+.B 0
+Success
+.TP
+.B 1
+Various errors
+.SH AUTHOR
+Written by Araise25
+.SH REPORTING BUGS
+Report bugs to https://github.com/Araise25/arAIse_PM/issues
+.SH COPYRIGHT
+Copyright © 2024 Araise25. License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.

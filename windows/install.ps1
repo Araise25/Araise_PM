@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Can be executed straight from a repo checkout **or** via the one‑liner:
-        iwr -useb https://raw.githubusercontent.com/Araise25/arAIse_PM/main/windows/install.ps1 | iex
+        iwr -useb https://raw.githubusercontent.com/Araise25/Araise_PM/main/windows/install.ps1 | iex
 #>
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ $ARAISE_DIR   = Join-Path $env:USERPROFILE ".araise"
 $BIN_DIR      = Join-Path $ARAISE_DIR "bin"
 
 $FORGE_ORG  = "Araise25"
-$FORGE_REPO = "arAIse_PM"
+$FORGE_REPO = "Araise_PM"
 $BRANCH     = "main"
 $BASE_URL   = "https://raw.githubusercontent.com/$FORGE_ORG/$FORGE_REPO/$BRANCH"
 

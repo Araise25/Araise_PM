@@ -331,7 +331,7 @@ update_packages() {
     
     mkdir -p "$ARAISE_DIR"
     local target_file="$ARAISE_DIR/packages.json"
-    local remote_url="https://raw.githubusercontent.com/Araise25/arAIse_PM/main/common/packages.json"
+    local remote_url="https://raw.githubusercontent.com/Araise25/Araise_PM/main/common/packages.json"
     local temp_file="/tmp/packages.json.tmp"
     local success=false
 

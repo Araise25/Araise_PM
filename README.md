@@ -6,14 +6,14 @@ Araise is a cross-platform package manager designed to simplify the installation
 
 ### Windows
 ```powershell
-$script = Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/Araise25/arAIse_PM/main/windows/install.ps1"
+$script = Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/Araise25/Araise_PM/main/windows/install.ps1"
 $script.Content | Out-File -FilePath "$env:TEMP\araise_install.ps1"
 & "$env:TEMP\araise_install.ps1"
 ```
 
 ### Linux/macOS
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Araise25/arAIse_PM/main/unix/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Araise25/Araise_PM/main/unix/install.sh | bash
 ```
 
 ## 🚀 Getting Started
@@ -144,7 +144,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🌟 Support
 
-- Report issues on [GitHub Issues](https://github.com/Araise25/arAIse_PM/issues)
+- Report issues on [GitHub Issues](https://github.com/Araise25/Araise_PM/issues)
 - Join our [Discord Community](https://discord.gg/araise)
 - Follow updates on [Twitter](https://twitter.com/araise)
 

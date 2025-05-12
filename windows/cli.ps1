@@ -12,7 +12,7 @@ if (-not $SCRIPT_DIR) {
 $PROJECT_ROOT = Split-Path -Parent $SCRIPT_DIR
 $ARAISE_DIR = Join-Path $env:USERPROFILE ".araise"
 $FORGE_ORG = "Araise25"
-$FORGE_REPO = "arAIse_PM"
+$FORGE_REPO = "Araise_PM"
 
 # Colors for output
 $RED = [System.ConsoleColor]::Red

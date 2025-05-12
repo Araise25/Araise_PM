@@ -12,7 +12,7 @@ BIN_DIR="$HOME/.local/bin"
 MAN_DIR="$HOME/.local/share/man/man1"
 
 FORGE_ORG="Araise25"
-FORGE_REPO="arAIse_PM"
+FORGE_REPO="Araise_PM"
 
 # Parse arguments
 while [ "$#" -gt 0 ]; do

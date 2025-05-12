@@ -13,7 +13,7 @@ BOLD='\033[1m'
 # Base directory for araise
 ARAISE_DIR="$HOME/.araise"
 FORGE_ORG="Araise25"
-FORGE_REPO="arAIse_PM"
+FORGE_REPO="Araise_PM"
 
 # Create necessary directories
 mkdir -p "$ARAISE_DIR/packages"

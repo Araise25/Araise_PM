@@ -222,8 +222,7 @@ uninstall_package() {
     rm -rf "$package_dir"
     echo -e "${GREEN}SUCCESS: Package uninstalled successfully!${NC}"
 }
-
-# Function to install browser extensions with user browser selection
+# Function to install browser extensions with all browser options shown
 install_browser_extension() {
   PACKAGE=$1
   JSON=$2
@@ -232,67 +231,74 @@ install_browser_extension() {
 
   echo "📦 Installing browser extension: $PACKAGE"
 
-  # Detect available browsers
-  AVAILABLE_BROWSERS=()
-  if command -v firefox >/dev/null 2>&1; then
-    AVAILABLE_BROWSERS+=("firefox")
-  fi
-  if command -v google-chrome >/dev/null 2>&1; then
-    AVAILABLE_BROWSERS+=("chrome")
-  fi
-  if command -v brave-browser >/dev/null 2>&1; then
-    AVAILABLE_BROWSERS+=("brave")
-  fi
+  # Static list of supported browsers
+  BROWSERS=("firefox" "chrome" "brave")
 
-  if [ ${#AVAILABLE_BROWSERS[@]} -eq 0 ]; then
-    echo "❌ Supported browser not found (chrome/brave/firefox)"
-    exit 1
-  fi
-
-  echo "🌐 Available browsers:"
-  for i in "${!AVAILABLE_BROWSERS[@]}"; do
-    echo "  [$((i+1))] ${AVAILABLE_BROWSERS[$i]}"
+  echo "🌐 Supported browsers:"
+  for i in "${!BROWSERS[@]}"; do
+    echo "  [$((i+1))] ${BROWSERS[$i]}"
   done
 
   # Ask user for choice
-  read -p "🧭 Select the browser to install extension [1-${#AVAILABLE_BROWSERS[@]}]: " CHOICE
-  SELECTED_BROWSER="${AVAILABLE_BROWSERS[$((CHOICE-1))]}"
+  read -p "🧭 Select the browser to install extension [1-${#BROWSERS[@]}]: " CHOICE
+  SELECTED_BROWSER="${BROWSERS[$((CHOICE-1))]}"
 
   if [ -z "$SELECTED_BROWSER" ]; then
     echo "❌ Invalid selection."
     exit 1
   fi
 
-  echo "🔧 Installing for: $SELECTED_BROWSER"
-
-  if [ "$SELECTED_BROWSER" = "firefox" ]; then
-    XPI_URL=$(echo "$JSON" | jq -r ".browsers.firefox.url")
-    curl -L "$XPI_URL" -o "$EXT_DIR/$PACKAGE.xpi"
-
-    echo "🦊 Installing into Firefox..."
-    firefox "$EXT_DIR/$PACKAGE.xpi"
-  else
-    REPO=$(echo "$JSON" | jq -r ".browsers.chrome.repo")
-    PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.path")
-    TMP_DIR=$(mktemp -d)
-
-    echo "🌐 Cloning from $REPO..."
-    git clone --depth 1 "$REPO" "$TMP_DIR"
-    cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
-    rm -rf "$TMP_DIR"
-
-    echo "✅ Extension files copied to: $EXT_DIR"
-    echo "🔓 Opening $SELECTED_BROWSER extension page..."
-
-    if command -v xdg-open >/dev/null; then
-      xdg-open "chrome://extensions"
-    elif command -v open >/dev/null; then
-      open "chrome://extensions"
-    fi
-
-    echo "🧠 Load the unpacked extension from: $EXT_DIR"
-  fi
+  # Check if selected browser is installed
+  case "$SELECTED_BROWSER" in
+    firefox)
+      if ! command -v firefox >/dev/null; then
+        echo "❌ Firefox is not installed."
+        exit 1
+      fi
+      XPI_URL=$(echo "$JSON" | jq -r ".browsers.firefox.url")
+      curl -L "$XPI_URL" -o "$EXT_DIR/$PACKAGE.xpi"
+      echo "🦊 Installing into Firefox..."
+      firefox "$EXT_DIR/$PACKAGE.xpi"
+      ;;
+    chrome)
+      if ! command -v google-chrome >/dev/null; then
+        echo "❌ Google Chrome is not installed."
+        exit 1
+      fi
+      REPO=$(echo "$JSON" | jq -r ".browsers.chrome.repo")
+      PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.path")
+      TMP_DIR=$(mktemp -d)
+      echo "🌐 Cloning from $REPO..."
+      git clone --depth 1 "$REPO" "$TMP_DIR"
+      cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
+      rm -rf "$TMP_DIR"
+      echo "✅ Extension files copied to: $EXT_DIR"
+      google-chrome "chrome://extensions"
+      echo "🧠 Load the unpacked extension from: $EXT_DIR"
+      ;;
+    brave)
+      if ! command -v brave-browser >/dev/null; then
+        echo "❌ Brave Browser is not installed."
+        exit 1
+      fi
+      REPO=$(echo "$JSON" | jq -r ".browsers.chrome.repo")
+      PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.path")
+      TMP_DIR=$(mktemp -d)
+      echo "🌐 Cloning from $REPO..."
+      git clone --depth 1 "$REPO" "$TMP_DIR"
+      cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
+      rm -rf "$TMP_DIR"
+      echo "✅ Extension files copied to: $EXT_DIR"
+      brave-browser "chrome://extensions"
+      echo "🧠 Load the unpacked extension from: $EXT_DIR"
+      ;;
+    *)
+      echo "❌ Unsupported browser selected."
+      exit 1
+      ;;
+  esac
 }
+
 
 
 # Function to show available packages with types

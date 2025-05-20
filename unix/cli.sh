@@ -107,7 +107,7 @@ show_progress() {
 # Updated install_package function to handle different package types
 install_package() {
   PACKAGE=$1
-  REGISTRY_URL="https://raw.githubusercontent.com/Araise25/arAIse_PM/main/registry.json"
+  REGISTRY_URL="https://raw.githubusercontent.com/Araise25/Araise_PM/main/common/packages.json"
   JSON=$(curl -s "$REGISTRY_URL")
 
   PACKAGE_JSON=$(echo "$JSON" | jq -r ".packages[] | select(.name == \"$PACKAGE\")")

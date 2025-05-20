@@ -11,7 +11,7 @@
             "path": "src"
           },
           "firefox": {
-            "url": "https://github.com/Araise25/YSB/releases/download/v1.0.0/ysb-firefox.xpi"
+            "url": "https://github.com/Araise25/YSB/releases/download/v1.0/YSB.xpi"
           }
         }
       }

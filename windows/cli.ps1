@@ -114,13 +114,108 @@ function List-Packages {
     Write-Host "------------------------------------------" -ForegroundColor $CYAN
 }
 
+# Function to install browser extensions
+function Install-BrowserExtension {
+    param (
+        [string]$packageName,
+        [PSObject]$packageData
+    )
+    
+    $extDir = Join-Path $ARAISE_DIR "extensions\$packageName"
+    New-Item -ItemType Directory -Force -Path $extDir | Out-Null
+    
+    Write-Host "📦 Installing browser extension: $packageName" -ForegroundColor $YELLOW
+    
+    # Detect browser
+    $browser = $null
+    if (Test-Path "C:\Program Files\Mozilla Firefox\firefox.exe") {
+        $browser = "firefox"
+    }
+    elseif (Test-Path "C:\Program Files\Google\Chrome\Application\chrome.exe" -or 
+            Test-Path "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe") {
+        $browser = "chrome"
+    }
+    elseif (Test-Path "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe" -or 
+            Test-Path "C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe") {
+        $browser = "brave"
+    }
+    else {
+        Write-Host "❌ Supported browser not found (Chrome/Brave/Firefox)" -ForegroundColor $RED
+        return $false
+    }
+    
+    if ($browser -eq "firefox") {
+        $xpiUrl = $packageData.browsers.firefox.url
+        $xpiPath = Join-Path $extDir "$packageName.xpi"
+        
+        Write-Host "🦊 Downloading Firefox extension..." -ForegroundColor $CYAN
+        Invoke-WebRequest -Uri $xpiUrl -OutFile $xpiPath
+        
+        Write-Host "🦊 Installing into Firefox..." -ForegroundColor $CYAN
+        Start-Process "firefox.exe" -ArgumentList $xpiPath
+    }
+    else {
+        $repo = $packageData.browsers.chrome.repo
+        $pathInsideRepo = $packageData.browsers.chrome.path
+        $tmpDir = Join-Path $env:TEMP "araise_ext_$([Guid]::NewGuid().ToString())"
+        
+        Write-Host "🌐 Cloning from $repo..." -ForegroundColor $CYAN
+        git clone --depth 1 $repo $tmpDir
+        
+        if (Test-Path "$tmpDir\$pathInsideRepo") {
+            Copy-Item -Path "$tmpDir\$pathInsideRepo\*" -Destination $extDir -Recurse -Force
+            Remove-Item -Path $tmpDir -Recurse -Force
+            
+            Write-Host "✅ Extension files copied to: $extDir" -ForegroundColor $GREEN
+            Write-Host "🔓 Opening Chrome extension page..." -ForegroundColor $CYAN
+            
+            if ($browser -eq "chrome") {
+                Start-Process "chrome.exe" -ArgumentList "chrome://extensions/"
+            }
+            else {
+                Start-Process "brave.exe" -ArgumentList "brave://extensions/"
+            }
+            
+            Write-Host "🧠 Load the unpacked extension from: $extDir" -ForegroundColor $YELLOW
+        }
+        else {
+            Write-Host "❌ Path inside repo not found: $pathInsideRepo" -ForegroundColor $RED
+            Remove-Item -Path $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
+            return $false
+        }
+    }
+    
+    return $true
+}
+
+# Function to install a package
 function Install-Package {
     param (
         [string]$packageName
     )
 
     Write-Host "Installing package: $packageName" -ForegroundColor $YELLOW
+    
+    # Check if it's a browser extension
+    $registryUrl = "https://raw.githubusercontent.com/$FORGE_ORG/arAIse_PM/main/registry.json"
+    try {
+        $registryJson = Invoke-WebRequest -Uri $registryUrl -UseBasicParsing | ConvertFrom-Json
+        $packageJson = $registryJson.packages | Where-Object { $_.name -eq $packageName }
+        
+        if ($packageJson) {
+            $packageType = $packageJson.type
+            
+            if ($packageType -eq "extension") {
+                return Install-BrowserExtension -packageName $packageName -packageData $packageJson
+            }
+        }
+    }
+    catch {
+        Write-Host "Note: Not a browser extension or registry unavailable" -ForegroundColor $YELLOW
+        # Continue with normal package installation
+    }
 
+    # Original Install-Package code continues below
     if (Test-DevelopmentMode) {
         $packagesFile = $LOCAL_PACKAGES
     } else {

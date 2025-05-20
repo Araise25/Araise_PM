@@ -104,87 +104,26 @@ show_progress() {
     fi
 }
 
-# Updated install_package function to handle platform-specific commands
+# Updated install_package function to handle different package types
 install_package() {
-    local package_name="$1"
-    echo -e "${YELLOW}Installing package: ${CYAN}$package_name${NC}"
-    
-    if ! check_package_exists "$package_name"; then
-        echo -e "${YELLOW}Package ${CYAN}$package_name${YELLOW} not found in registry${NC}"
-        echo -e "${GREEN}Would you like to update the package registry? (y/N)${NC}"
-        read -r response
-        
-        if [[ "$response" =~ ^[Yy]$ ]]; then
-            if update_packages; then
-                if check_package_exists "$package_name"; then
-                    echo -e "${GREEN}Package ${CYAN}$package_name${GREEN} is now available!${NC}"
-                else
-                    echo -e "${RED}ERROR: Package ${CYAN}$package_name${RED} not found even after update!${NC}"
-                    return 1
-                fi
-            else
-                echo -e "${RED}ERROR: Failed to update registry${NC}"
-                return 1
-            fi
-        else
-            echo -e "${YELLOW}Installation cancelled${NC}"
-            return 1
-        fi
-    fi
-    
-    local package_dir="$ARAISE_DIR/packages/$package_name"
-    if [ -d "$package_dir" ]; then
-        echo -e "${YELLOW}WARNING: Package already installed${NC}"
-        return 0
-    fi
-    
-    # Detect platform
-    local platform=$(detect_platform)
-    echo -e "${YELLOW}Detected platform: ${CYAN}$platform${NC}"
-    
-    # Get install commands from JSON structure
-    local packages_file="$ARAISE_DIR/packages.json"
-    local install_commands=$(jq -r ".packages[] | select(.name == \"$package_name\") | .installCommand.$platform[]" "$packages_file" 2>/dev/null)
-    
-    # If platform-specific commands not found, try to use generic installCommand
-    if [ -z "$install_commands" ]; then
-        install_commands=$(jq -r ".packages[] | select(.name == \"$package_name\") | .installCommand[]" "$packages_file" 2>/dev/null)
-    fi
-    
-    if [ -z "$install_commands" ]; then
-        echo -e "${RED}ERROR: No install commands found for package on $platform${NC}"
-        return 1
-    fi
-    
-    # Create package directory
-    mkdir -p "$package_dir"
-    cd "$package_dir" || return 1
-    
-    # Count total commands
-    local total_commands=$(echo "$install_commands" | wc -l)
-    local current_command=0
-    
-    echo -e "${YELLOW}Installing ${CYAN}$package_name${NC}"
-    
-    # Execute install commands with progress bar
-    while IFS= read -r cmd; do
-        if [ -n "$cmd" ]; then
-            current_command=$((current_command + 1))
-            show_progress $current_command $total_commands
-            sleep 0.1  # Add a small delay to make the animation visible
-            
-            if ! eval "$cmd" > /dev/null 2>&1; then
-                echo -e "\n${RED}ERROR: Installation failed${NC}"
-                cd - >/dev/null
-                rm -rf "$package_dir"
-                return 1
-            fi
-        fi
-    done <<< "$install_commands"
-    
-    cd - >/dev/null
-    echo -e "\n${GREEN}Installation complete!${NC}"
-    return 0
+  PACKAGE=$1
+  REGISTRY_URL="https://raw.githubusercontent.com/Araise25/arAIse_PM/main/registry.json"
+  JSON=$(curl -s "$REGISTRY_URL")
+
+  PACKAGE_JSON=$(echo "$JSON" | jq -r ".packages[] | select(.name == \"$PACKAGE\")")
+
+  if [ -z "$PACKAGE_JSON" ]; then
+    echo "❌ Package '$PACKAGE' not found"
+    exit 1
+  fi
+
+  TYPE=$(echo "$PACKAGE_JSON" | jq -r ".type")
+
+  if [ "$TYPE" = "extension" ]; then
+    install_browser_extension "$PACKAGE" "$PACKAGE_JSON"
+  else
+    echo "❌ Unsupported package type: $TYPE"
+  fi
 }
 
 # Function to show process control info based on OS
@@ -283,7 +222,57 @@ uninstall_package() {
     rm -rf "$package_dir"
     echo -e "${GREEN}SUCCESS: Package uninstalled successfully!${NC}"
 }
-# Modified part of show_available_packages function
+
+# Function to install browser extensions
+install_browser_extension() {
+  PACKAGE=$1
+  JSON=$2
+  EXT_DIR="$HOME/.araise/extensions/$PACKAGE"
+  mkdir -p "$EXT_DIR"
+
+  echo "📦 Installing browser extension: $PACKAGE"
+
+  BROWSER=""
+  if command -v firefox >/dev/null 2>&1; then
+    BROWSER="firefox"
+  elif command -v google-chrome >/dev/null 2>&1; then
+    BROWSER="chrome"
+  elif command -v brave-browser >/dev/null 2>&1; then
+    BROWSER="brave"
+  else
+    echo "❌ Supported browser not found (chrome/brave/firefox)"
+    exit 1
+  fi
+
+  if [ "$BROWSER" = "firefox" ]; then
+    XPI_URL=$(echo "$JSON" | jq -r ".browsers.firefox.url")
+    curl -L "$XPI_URL" -o "$EXT_DIR/$PACKAGE.xpi"
+
+    echo "🦊 Installing into Firefox..."
+    firefox "$EXT_DIR/$PACKAGE.xpi"
+  else
+    REPO=$(echo "$JSON" | jq -r ".browsers.chrome.repo")
+    PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.path")
+    TMP_DIR=$(mktemp -d)
+
+    echo "🌐 Cloning from $REPO..."
+    git clone --depth 1 "$REPO" "$TMP_DIR"
+    cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
+    rm -rf "$TMP_DIR"
+
+    echo "✅ Extension files copied to: $EXT_DIR"
+    echo "🔓 Opening Chrome extension page..."
+
+    if command -v xdg-open >/dev/null; then
+      xdg-open "chrome://extensions"
+    elif command -v open >/dev/null; then
+      open "chrome://extensions"
+    fi
+
+    echo "🧠 Load the unpacked extension from: $EXT_DIR"
+  fi
+}
+
 # Function to show available packages with types
 show_available_packages() {
     echo -e "${BOLD}${MAGENTA}Available Packages${NC}"

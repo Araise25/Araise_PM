@@ -223,7 +223,7 @@ uninstall_package() {
     echo -e "${GREEN}SUCCESS: Package uninstalled successfully!${NC}"
 }
 
-# Function to install browser extensions
+# Function to install browser extensions with user browser selection
 install_browser_extension() {
   PACKAGE=$1
   JSON=$2
@@ -232,19 +232,40 @@ install_browser_extension() {
 
   echo "📦 Installing browser extension: $PACKAGE"
 
-  BROWSER=""
+  # Detect available browsers
+  AVAILABLE_BROWSERS=()
   if command -v firefox >/dev/null 2>&1; then
-    BROWSER="firefox"
-  elif command -v google-chrome >/dev/null 2>&1; then
-    BROWSER="chrome"
-  elif command -v brave-browser >/dev/null 2>&1; then
-    BROWSER="brave"
-  else
+    AVAILABLE_BROWSERS+=("firefox")
+  fi
+  if command -v google-chrome >/dev/null 2>&1; then
+    AVAILABLE_BROWSERS+=("chrome")
+  fi
+  if command -v brave-browser >/dev/null 2>&1; then
+    AVAILABLE_BROWSERS+=("brave")
+  fi
+
+  if [ ${#AVAILABLE_BROWSERS[@]} -eq 0 ]; then
     echo "❌ Supported browser not found (chrome/brave/firefox)"
     exit 1
   fi
 
-  if [ "$BROWSER" = "firefox" ]; then
+  echo "🌐 Available browsers:"
+  for i in "${!AVAILABLE_BROWSERS[@]}"; do
+    echo "  [$((i+1))] ${AVAILABLE_BROWSERS[$i]}"
+  done
+
+  # Ask user for choice
+  read -p "🧭 Select the browser to install extension [1-${#AVAILABLE_BROWSERS[@]}]: " CHOICE
+  SELECTED_BROWSER="${AVAILABLE_BROWSERS[$((CHOICE-1))]}"
+
+  if [ -z "$SELECTED_BROWSER" ]; then
+    echo "❌ Invalid selection."
+    exit 1
+  fi
+
+  echo "🔧 Installing for: $SELECTED_BROWSER"
+
+  if [ "$SELECTED_BROWSER" = "firefox" ]; then
     XPI_URL=$(echo "$JSON" | jq -r ".browsers.firefox.url")
     curl -L "$XPI_URL" -o "$EXT_DIR/$PACKAGE.xpi"
 
@@ -261,7 +282,7 @@ install_browser_extension() {
     rm -rf "$TMP_DIR"
 
     echo "✅ Extension files copied to: $EXT_DIR"
-    echo "🔓 Opening Chrome extension page..."
+    echo "🔓 Opening $SELECTED_BROWSER extension page..."
 
     if command -v xdg-open >/dev/null; then
       xdg-open "chrome://extensions"
@@ -272,6 +293,7 @@ install_browser_extension() {
     echo "🧠 Load the unpacked extension from: $EXT_DIR"
   fi
 }
+
 
 # Function to show available packages with types
 show_available_packages() {

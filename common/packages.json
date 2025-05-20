@@ -6,14 +6,15 @@
         "description": "YouTube Sidebar - A browser extension to enhance YouTube experience",
         "type": "extension",
         "browsers": {
-          "chrome": {
-            "repo": "https://github.com/Araise25/YSB",
-            "path": "src"
-          },
-          "firefox": {
-            "url": "https://github.com/Araise25/YSB/releases/download/v1.0/YSB.xpi"
-          }
+        "firefox": {
+          "repo": "https://github.com/Araise25/YSB",
+          "path": "."
+        },
+        "chrome": {
+          "repo": "https://github.com/Araise25/YSB",
+          "path": "."
         }
+      }
       }
     ]
   }

@@ -257,7 +257,7 @@ install_browser_extension() {
       fi
 
       XPI_URL=$(echo "$JSON" | jq -r ".browsers.firefox.url")
-      XPI_PATH="$EXT_DIR/$PACKAGE.xpi"
+      XPI_PATH="$EXT_DIR/$PACKAGE"
 
       echo "🌐 Downloading Firefox extension from: $XPI_URL"
       curl -L "$XPI_URL" -o "$XPI_PATH"

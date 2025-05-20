@@ -250,16 +250,22 @@ install_browser_extension() {
 
   # Check if selected browser is installed
   case "$SELECTED_BROWSER" in
-    firefox)
+        firefox)
       if ! command -v firefox >/dev/null; then
         echo "❌ Firefox is not installed."
         exit 1
       fi
+
       XPI_URL=$(echo "$JSON" | jq -r ".browsers.firefox.url")
-      curl -L "$XPI_URL" -o "$EXT_DIR/$PACKAGE.xpi"
-      echo "🦊 Installing into Firefox..."
-      firefox "$EXT_DIR/$PACKAGE.xpi"
+      XPI_PATH="$EXT_DIR/$PACKAGE.xpi"
+
+      echo "🌐 Downloading Firefox extension from: $XPI_URL"
+      curl -L "$XPI_URL" -o "$XPI_PATH"
+
+      echo "🦊 Launching Firefox to install extension..."
+      firefox "$XPI_PATH"
       ;;
+
     chrome)
       if ! command -v google-chrome >/dev/null; then
         echo "❌ Google Chrome is not installed."

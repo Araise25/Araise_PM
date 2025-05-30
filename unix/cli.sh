@@ -14,9 +14,12 @@ BOLD='\033[1m'
 ARAISE_DIR="$HOME/.araise"
 FORGE_ORG="Araise25"
 FORGE_REPO="Araise_PM"
+ALIASES_FILE="$ARAISE_DIR/aliases.json"
 
 # Create necessary directories
 mkdir -p "$ARAISE_DIR/packages"
+mkdir -p "$ARAISE_DIR/extensions"
+mkdir -p "$ARAISE_DIR/scripts"
 
 # Function to show help
 show_help() {
@@ -29,8 +32,92 @@ show_help() {
     echo -e "  ${GREEN}araise${NC} ${YELLOW}list${NC}                 ${NC}- List installed packages"
     echo -e "  ${GREEN}araise${NC} ${YELLOW}update${NC}               ${NC}- Update package list"
     echo -e "  ${GREEN}araise${NC} ${YELLOW}available${NC}            ${NC}- Show available packages"
+    echo -e "  ${GREEN}araise${NC} ${YELLOW}aliases${NC}              ${NC}- List all aliases"
     echo -e "  ${GREEN}araise${NC} ${YELLOW}help${NC}                 ${NC}- Show this help message"
     echo -e "  ${RED}uninstall-araise${NC}             - Uninstall Araise"
+    echo -e "${CYAN}------------------------------------------${NC}"
+    echo -e "${BOLD}${YELLOW}Alias Support:${NC}"
+    echo -e "  Packages can define aliases in packages.json"
+    echo -e "  Use aliases as shortcuts to run packages"
+    echo -e "  Example: ${GREEN}araise${NC} ${CYAN}ll${NC} might run ${CYAN}list-tools${NC}"
+    echo -e "${CYAN}------------------------------------------${NC}"
+}
+
+# Function to initialize aliases file
+init_aliases_file() {
+    if [ ! -f "$ALIASES_FILE" ]; then
+        echo '{"aliases": {}}' > "$ALIASES_FILE"
+    fi
+}
+
+# Function to update aliases from package registry
+update_aliases() {
+    local packages_file="$ARAISE_DIR/packages.json"
+    
+    if [ ! -f "$packages_file" ]; then
+        return 1
+    fi
+    
+    init_aliases_file
+    
+    # Create a temporary file for new aliases
+    local temp_aliases=$(mktemp)
+    echo '{"aliases": {}}' > "$temp_aliases"
+    
+    # Extract aliases from all packages
+    jq -r '.packages[] | select(.aliases != null) | .name as $pkg | .aliases[] | "\($pkg)|\(.)"' "$packages_file" | while IFS='|' read -r package_name alias; do
+        if [ -n "$alias" ] && [ -n "$package_name" ]; then
+            # Add alias to temp file
+            jq --arg alias "$alias" --arg pkg "$package_name" '.aliases[$alias] = $pkg' "$temp_aliases" > "${temp_aliases}.tmp" && mv "${temp_aliases}.tmp" "$temp_aliases"
+        fi
+    done
+    
+    # Replace the aliases file
+    mv "$temp_aliases" "$ALIASES_FILE"
+    
+    return 0
+}
+
+# Function to resolve alias to package name
+resolve_alias() {
+    local alias_name="$1"
+    
+    init_aliases_file
+    
+    # Check if it's an alias
+    local resolved_package=$(jq -r ".aliases[\"$alias_name\"] // empty" "$ALIASES_FILE" 2>/dev/null)
+    
+    if [ -n "$resolved_package" ]; then
+        echo "$resolved_package"
+        return 0
+    else
+        # Return the original name if not an alias
+        echo "$alias_name"
+        return 1
+    fi
+}
+
+# Function to list all aliases
+list_aliases() {
+    echo -e "${BOLD}${MAGENTA}Available Aliases${NC}"
+    echo -e "${CYAN}------------------------------------------${NC}"
+    
+    init_aliases_file
+    
+    # Check if aliases file has any aliases
+    local alias_count=$(jq '.aliases | length' "$ALIASES_FILE" 2>/dev/null || echo "0")
+    
+    if [ "$alias_count" -eq 0 ]; then
+        echo -e "${YELLOW}No aliases available${NC}"
+        echo -e "${CYAN}Aliases are defined in package.json and updated automatically${NC}"
+    else
+        echo -e "${BOLD}Alias${NC} ${CYAN}->${NC} ${BOLD}Package${NC}"
+        echo -e "${CYAN}------------------------------------------${NC}"
+        
+        # List all aliases with their target packages
+        jq -r '.aliases | to_entries[] | "\u001b[32m\(.key)\u001b[0m \u001b[36m->\u001b[0m \u001b[1m\(.value)\u001b[0m"' "$ALIASES_FILE"
+    fi
+    
     echo -e "${CYAN}------------------------------------------${NC}"
 }
 
@@ -40,10 +127,51 @@ list_packages() {
     echo -e "${CYAN}------------------------------------------${NC}"
     
     local installed=false
+    
+    # List regular packages
     for package_dir in "$ARAISE_DIR/packages"/*; do
         if [ -d "$package_dir" ]; then
             local package_name=$(basename "$package_dir")
-            echo -e "${GREEN}*${NC} ${BOLD}$package_name${NC}"
+            echo -e "${GREEN}*${NC} ${BOLD}$package_name${NC} ${CYAN}(package)${NC}"
+            
+            # Show aliases for this package if any
+            local package_aliases=$(jq -r ".aliases | to_entries[] | select(.value == \"$package_name\") | .key" "$ALIASES_FILE" 2>/dev/null | tr '\n' ' ')
+            if [ -n "$package_aliases" ]; then
+                echo -e "  ${YELLOW}Aliases:${NC} ${CYAN}$package_aliases${NC}"
+            fi
+            
+            installed=true
+        fi
+    done
+    
+    # List extensions
+    for ext_dir in "$ARAISE_DIR/extensions"/*; do
+        if [ -d "$ext_dir" ]; then
+            local ext_name=$(basename "$ext_dir")
+            echo -e "${GREEN}*${NC} ${BOLD}$ext_name${NC} ${BLUE}(extension)${NC}"
+            
+            # Show aliases for this extension if any
+            local ext_aliases=$(jq -r ".aliases | to_entries[] | select(.value == \"$ext_name\") | .key" "$ALIASES_FILE" 2>/dev/null | tr '\n' ' ')
+            if [ -n "$ext_aliases" ]; then
+                echo -e "  ${YELLOW}Aliases:${NC} ${CYAN}$ext_aliases${NC}"
+            fi
+            
+            installed=true
+        fi
+    done
+    
+    # List scripts
+    for script_dir in "$ARAISE_DIR/scripts"/*; do
+        if [ -d "$script_dir" ]; then
+            local script_name=$(basename "$script_dir")
+            echo -e "${GREEN}*${NC} ${BOLD}$script_name${NC} ${MAGENTA}(script)${NC}"
+            
+            # Show aliases for this script if any
+            local script_aliases=$(jq -r ".aliases | to_entries[] | select(.value == \"$script_name\") | .key" "$ALIASES_FILE" 2>/dev/null | tr '\n' ' ')
+            if [ -n "$script_aliases" ]; then
+                echo -e "  ${YELLOW}Aliases:${NC} ${CYAN}$script_aliases${NC}"
+            fi
+            
             installed=true
         fi
     done
@@ -106,24 +234,35 @@ show_progress() {
 
 # Updated install_package function to handle different package types
 install_package() {
-  PACKAGE=$1
-  REGISTRY_URL="https://raw.githubusercontent.com/Araise25/Araise_PM/main/common/packages.json"
-  JSON=$(curl -s "$REGISTRY_URL")
+    PACKAGE=$1
+    REGISTRY_URL="https://raw.githubusercontent.com/Araise25/Araise_PM/main/common/packages.json"
+    JSON=$(curl -s "$REGISTRY_URL")
 
-  PACKAGE_JSON=$(echo "$JSON" | jq -r ".packages[] | select(.name == \"$PACKAGE\")")
+    PACKAGE_JSON=$(echo "$JSON" | jq -r ".packages[] | select(.name == \"$PACKAGE\")")
 
-  if [ -z "$PACKAGE_JSON" ]; then
-    echo "❌ Package '$PACKAGE' not found"
-    exit 1
-  fi
+    if [ -z "$PACKAGE_JSON" ]; then
+        echo "❌ Package '$PACKAGE' not found"
+        exit 1
+    fi
 
-  TYPE=$(echo "$PACKAGE_JSON" | jq -r ".type")
+    TYPE=$(echo "$PACKAGE_JSON" | jq -r ".type")
 
-  if [ "$TYPE" = "extension" ]; then
-    install_browser_extension "$PACKAGE" "$PACKAGE_JSON"
-  else
-    echo "❌ Unsupported package type: $TYPE"
-  fi
+    case "$TYPE" in
+        "extension")
+            install_browser_extension "$PACKAGE" "$PACKAGE_JSON"
+            ;;
+        "script")
+            install_script "$PACKAGE" "$PACKAGE_JSON"
+            ;;
+        *)
+            echo "❌ Unsupported package type: $TYPE"
+            exit 1
+            ;;
+    esac
+    
+    # Update aliases after successful installation
+    echo -e "${CYAN}Updating aliases...${NC}"
+    update_aliases
 }
 
 # Function to show process control info based on OS
@@ -212,95 +351,251 @@ run_package() {
 uninstall_package() {
     local package_name="$1"
     local package_dir="$ARAISE_DIR/packages/$package_name"
+    local ext_dir="$ARAISE_DIR/extensions/$package_name"
+    local script_dir="$ARAISE_DIR/scripts/$package_name"
     
-    if [ ! -d "$package_dir" ]; then
+    local found=false
+    
+    if [ -d "$package_dir" ]; then
+        echo -e "${YELLOW}Uninstalling package ${CYAN}$package_name${NC}"
+        rm -rf "$package_dir"
+        found=true
+    fi
+    
+    if [ -d "$ext_dir" ]; then
+        echo -e "${YELLOW}Uninstalling extension ${CYAN}$package_name${NC}"
+        rm -rf "$ext_dir"
+        found=true
+    fi
+    
+    if [ -d "$script_dir" ]; then
+        echo -e "${YELLOW}Uninstalling script ${CYAN}$package_name${NC}"
+        rm -rf "$script_dir"
+        found=true
+    fi
+    
+    if [ "$found" = false ]; then
         echo -e "${RED}ERROR: Package ${CYAN}$package_name${RED} not installed!${NC}"
         return 1
     fi
     
-    echo -e "${YELLOW}Uninstalling ${CYAN}$package_name${NC}"
-    rm -rf "$package_dir"
+    # Update aliases after uninstallation
+    echo -e "${CYAN}Updating aliases...${NC}"
+    update_aliases
+    
     echo -e "${GREEN}SUCCESS: Package uninstalled successfully!${NC}"
 }
+
+# Updated browser extension installer
 install_browser_extension() {
-  PACKAGE=$1
-  JSON=$2
-  EXT_DIR="$HOME/.araise/extensions/$PACKAGE"
-  mkdir -p "$EXT_DIR"
+    PACKAGE=$1
+    JSON=$2
+    EXT_DIR="$HOME/.araise/extensions/$PACKAGE"
+    mkdir -p "$EXT_DIR"
 
-  echo "📦 Installing browser extension: $PACKAGE"
+    echo "📦 Installing browser extension: $PACKAGE"
 
-  # Detect installed browsers
-  BROWSERS=()
-  [[ $(command -v firefox) ]] && BROWSERS+=("firefox")
-  [[ $(command -v google-chrome) ]] && BROWSERS+=("chrome")
-  [[ $(command -v brave-browser) ]] && BROWSERS+=("brave")
+    # Detect installed browsers
+    BROWSERS=()
+    [[ $(command -v firefox) ]] && BROWSERS+=("firefox")
+    [[ $(command -v google-chrome) ]] && BROWSERS+=("chrome")
+    [[ $(command -v chromium-browser) ]] && BROWSERS+=("chromium")
+    [[ $(command -v brave-browser) ]] && BROWSERS+=("brave")
 
-  if [ ${#BROWSERS[@]} -eq 0 ]; then
-    echo "❌ No supported browsers found (firefox, chrome, brave)."
-    exit 1
-  fi
-
-  echo "🌐 Available browsers:"
-  for i in "${!BROWSERS[@]}"; do
-    echo "  [$((i+1))] ${BROWSERS[$i]}"
-  done
-
-  read -p "🧭 Select the browser to install extension [1-${#BROWSERS[@]}]: " CHOICE
-  CHOICE=${CHOICE:-1}
-  BROWSER=${BROWSERS[$((CHOICE-1))]}
-
-  case $BROWSER in
-    firefox)
-      if ! command -v web-ext >/dev/null; then
-        echo "❌ 'web-ext' not found. Install it with: npm install -g web-ext"
+    if [ ${#BROWSERS[@]} -eq 0 ]; then
+        echo "❌ No supported browsers found (firefox, chrome, chromium, brave)."
         exit 1
-      fi
+    fi
 
-      REPO=$(echo "$JSON" | jq -r ".browsers.firefox.repo")
-      PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.firefox.path")
+    echo "🌐 Available browsers:"
+    for i in "${!BROWSERS[@]}"; do
+        echo "  [$((i+1))] ${BROWSERS[$i]}"
+    done
 
-      TMP_DIR=$(mktemp -d)
-      echo "🌐 Cloning $REPO..."
-      git clone --depth 1 "$REPO" "$TMP_DIR"
-      cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
-      rm -rf "$TMP_DIR"
+    read -p "🧭 Select the browser to install extension [1-${#BROWSERS[@]}]: " CHOICE
+    CHOICE=${CHOICE:-1}
+    BROWSER=${BROWSERS[$((CHOICE-1))]}
 
-      echo "🚀 Launching Firefox with extension loaded..."
-      web-ext run --source-dir="$EXT_DIR"
-      ;;
-    
-    chrome|brave)
-      REPO=$(echo "$JSON" | jq -r ".browsers.chrome.repo")
-      PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.path")
+    case $BROWSER in
+        firefox)
+            # Check if it's a repo or published link
+            FIREFOX_REPO=$(echo "$JSON" | jq -r ".browsers.firefox.repo // empty")
+            FIREFOX_LINK=$(echo "$JSON" | jq -r ".browsers.firefox.link // empty")
+            
+            if [ -n "$FIREFOX_LINK" ]; then
+                echo "🔗 Opening Firefox extension page..."
+                if command -v xdg-open >/dev/null; then
+                    xdg-open "$FIREFOX_LINK"
+                elif command -v open >/dev/null; then
+                    open "$FIREFOX_LINK"
+                else
+                    echo "🌐 Please visit: $FIREFOX_LINK"
+                fi
+            elif [ -n "$FIREFOX_REPO" ]; then
+                if ! command -v web-ext >/dev/null; then
+                    echo "❌ 'web-ext' not found. Install it with: npm install -g web-ext"
+                    exit 1
+                fi
 
-      TMP_DIR=$(mktemp -d)
-      echo "🌐 Cloning $REPO..."
-      git clone --depth 1 "$REPO" "$TMP_DIR"
-      cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
-      rm -rf "$TMP_DIR"
+                PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.firefox.path")
 
-      echo "✅ Extension files copied to: $EXT_DIR"
-      echo "🔓 Opening extension page..."
-      if command -v xdg-open >/dev/null; then
-        xdg-open "chrome://extensions"
-      elif command -v open >/dev/null; then
-        open "chrome://extensions"
-      fi
+                TMP_DIR=$(mktemp -d)
+                echo "🌐 Cloning $FIREFOX_REPO..."
+                git clone --depth 1 "$FIREFOX_REPO" "$TMP_DIR"
+                cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
+                rm -rf "$TMP_DIR"
 
-      echo "🧠 Load the unpacked extension manually from: $EXT_DIR"
-      ;;
-    *)
-      echo "❌ Unsupported browser selected."
-      exit 1
-      ;;
-  esac
+                echo "🚀 Launching Firefox with extension loaded..."
+                web-ext run --source-dir="$EXT_DIR"
+            else
+                echo "❌ No Firefox installation method found"
+                exit 1
+            fi
+            ;;
+        
+        chrome|chromium|brave)
+            # Check if it's a repo or published link
+            CHROME_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.repo // empty")
+            CHROME_LINK=$(echo "$JSON" | jq -r ".browsers.chrome.link // empty")
+            
+            if [ -n "$CHROME_LINK" ]; then
+                echo "🔗 Opening Chrome Web Store..."
+                if command -v xdg-open >/dev/null; then
+                    xdg-open "$CHROME_LINK"
+                elif command -v open >/dev/null; then
+                    open "$CHROME_LINK"
+                else
+                    echo "🌐 Please visit: $CHROME_LINK"
+                fi
+            elif [ -n "$CHROME_REPO" ]; then
+                PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.path")
+
+                TMP_DIR=$(mktemp -d)
+                echo "🌐 Cloning $CHROME_REPO..."
+                git clone --depth 1 "$CHROME_REPO" "$TMP_DIR"
+                cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
+                rm -rf "$TMP_DIR"
+
+                echo "✅ Extension files copied to: $EXT_DIR"
+                echo "🔓 Opening extension page..."
+                if command -v xdg-open >/dev/null; then
+                    xdg-open "chrome://extensions"
+                elif command -v open >/dev/null; then
+                    open "chrome://extensions"
+                fi
+
+                echo "🧠 Load the unpacked extension manually from: $EXT_DIR"
+            else
+                echo "❌ No Chrome installation method found"
+                exit 1
+            fi
+            ;;
+        *)
+            echo "❌ Unsupported browser selected."
+            exit 1
+            ;;
+    esac
 }
 
+# New function to install scripts
+install_script() {
+    PACKAGE=$1
+    JSON=$2
+    SCRIPT_DIR="$HOME/.araise/scripts/$PACKAGE"
+    mkdir -p "$SCRIPT_DIR"
 
+    echo "🔧 Installing script: $PACKAGE"
 
+    REPO=$(echo "$JSON" | jq -r ".repo")
+    PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".path // \".\"")
 
-# Function to show available packages with types
+    if [ "$REPO" = "null" ] || [ -z "$REPO" ]; then
+        echo "❌ No repository specified for script $PACKAGE"
+        exit 1
+    fi
+
+    TMP_DIR=$(mktemp -d)
+    echo "🌐 Cloning $REPO..."
+    
+    if ! git clone --depth 1 "$REPO" "$TMP_DIR"; then
+        echo "❌ Failed to clone repository"
+        rm -rf "$TMP_DIR"
+        exit 1
+    fi
+
+    # Copy script files
+    if [ "$PATH_INSIDE_REPO" = "." ]; then
+        cp -r "$TMP_DIR"/* "$SCRIPT_DIR/" 2>/dev/null || cp -r "$TMP_DIR"/.[^.]* "$SCRIPT_DIR/" 2>/dev/null || true
+    else
+        cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$SCRIPT_DIR/"
+    fi
+    
+    rm -rf "$TMP_DIR"
+
+    # Make script executable if there's a main script file
+    MAIN_SCRIPT=$(echo "$JSON" | jq -r ".main_script // empty")
+    if [ -n "$MAIN_SCRIPT" ] && [ -f "$SCRIPT_DIR/$MAIN_SCRIPT" ]; then
+        chmod +x "$SCRIPT_DIR/$MAIN_SCRIPT"
+        echo "✅ Made $MAIN_SCRIPT executable"
+    fi
+
+    echo "✅ Script $PACKAGE installed successfully to: $SCRIPT_DIR"
+}
+
+# New function to run scripts
+run_script() {
+    local script_name="$1"
+    local script_dir="$ARAISE_DIR/scripts/$script_name"
+    
+    if [ ! -d "$script_dir" ]; then
+        echo -e "${RED}ERROR: Script ${CYAN}$script_name${RED} not installed!${NC}"
+        return 1
+    fi
+    
+    local packages_file="$ARAISE_DIR/packages.json"
+    if [ ! -f "$packages_file" ]; then
+        echo -e "${RED}ERROR: Package registry not found!${NC}"
+        return 1
+    fi
+    
+    # Get script information
+    local script_json=$(jq -r ".packages[] | select(.name == \"$script_name\")" "$packages_file")
+    local main_script=$(echo "$script_json" | jq -r ".main_script // empty")
+    local run_command=$(echo "$script_json" | jq -r ".run_command // empty")
+    
+    cd "$script_dir" || return 1
+    
+    echo -e "${YELLOW}Running script: ${CYAN}$script_name${NC}"
+    
+    if [ -n "$run_command" ]; then
+        echo -e "${CYAN}> $run_command${NC}"
+        eval "$run_command"
+    elif [ -n "$main_script" ] && [ -f "$main_script" ]; then
+        echo -e "${CYAN}> ./$main_script${NC}"
+        ./"$main_script"
+    else
+        # Look for common script files
+        if [ -f "run.sh" ]; then
+            echo -e "${CYAN}> ./run.sh${NC}"
+            ./run.sh
+        elif [ -f "main.py" ]; then
+            echo -e "${CYAN}> python main.py${NC}"
+            python main.py
+        elif [ -f "index.js" ]; then
+            echo -e "${CYAN}> node index.js${NC}"
+            node index.js
+        else
+            echo -e "${RED}ERROR: No executable script found${NC}"
+            cd - >/dev/null
+            return 1
+        fi
+    fi
+    
+    cd - >/dev/null
+    return 0
+}
+
+# Function to show available packages with types and aliases
 show_available_packages() {
     echo -e "${BOLD}${MAGENTA}Available Packages${NC}"
     echo -e "${CYAN}------------------------------------------${NC}"
@@ -334,12 +629,13 @@ show_available_packages() {
     fi
 
     echo -e "\n${BOLD}Available packages:${NC}"
-    # Sort packages alphabetically, case-insensitive, and show with descriptions
-    jq -r '.packages | sort_by(.name | ascii_upcase) | .[] | "\u001b[32m* \u001b[1m\(.name)\u001b[0m - \(.description)"' "$packages_file"
+    # Sort packages alphabetically and show with descriptions, types, and aliases
+    jq -r '.packages | sort_by(.name | ascii_upcase) | .[] | 
+        "\u001b[32m* \u001b[1m\(.name)\u001b[0m (\(.type)) - \(.description)" + 
+        (if .aliases then "\n  \u001b[33mAliases: \u001b[36m" + (.aliases | join(", ")) + "\u001b[0m" else "" end)' "$packages_file"
     
     echo -e "${CYAN}------------------------------------------${NC}"
 }
-
 
 update_packages() {
     echo -e "${MAGENTA}Updating package registry...${NC}"
@@ -377,8 +673,14 @@ update_packages() {
             local package_count=$(jq '.packages | length' "$target_file")
             echo -e "${GREEN}Found ${CYAN}$package_count${GREEN} packages in registry${NC}"
             
-            # ✅ This line will now always be visible
+            # Update aliases after updating packages
+            echo -e "${CYAN}Updating aliases...${NC}"
+            update_aliases
+            local alias_count=$(jq '.aliases | length' "$ALIASES_FILE" 2>/dev/null || echo "0")
+            echo -e "${GREEN}Found ${CYAN}$alias_count${GREEN} aliases in registry${NC}"
+            
             echo -e "${CYAN}Use ${YELLOW}araise available${CYAN} to list available packages${NC}"
+            echo -e "${CYAN}Use ${YELLOW}araise aliases${CYAN} to list available aliases${NC}"
             
             return 0
         else
@@ -391,8 +693,7 @@ update_packages() {
     return 1
 }
 
-
-# Function to check if package exists in registry
+# Function to check if package exists in registry (with alias resolution)
 check_package_exists() {
     local package_name="$1"
     local packages_file="$ARAISE_DIR/packages.json"
@@ -416,11 +717,23 @@ check_user_consent() {
     [ -z "$response" ] || [[ "$response" =~ ^[Yy] ]]
 }
 
-# Function to handle package execution or installation
+# Enhanced function to handle package execution or installation with alias support
 handle_package_execution() {
-    local package_name="$1"
-    local package_dir="$ARAISE_DIR/packages/$package_name"
+    local input_name="$1"
     local packages_file="$ARAISE_DIR/packages.json"
+    
+    # First, try to resolve the alias
+    local resolved_package
+    if resolved_package=$(resolve_alias "$input_name"); then
+        echo -e "${CYAN}Resolved alias ${YELLOW}$input_name${CYAN} to package ${YELLOW}$resolved_package${NC}"
+        local package_name="$resolved_package"
+    else
+        local package_name="$input_name"
+    fi
+    
+    local package_dir="$ARAISE_DIR/packages/$package_name"
+    local ext_dir="$ARAISE_DIR/extensions/$package_name"
+    local script_dir="$ARAISE_DIR/scripts/$package_name"
     
     if [ ! -f "$packages_file" ]; then
         echo -e "${YELLOW}Package registry not found${NC}"
@@ -455,14 +768,25 @@ handle_package_execution() {
         fi
     fi
 
+    # Check what type of package is installed and run accordingly
     if [ -d "$package_dir" ]; then
         run_package "$package_name"
+    elif [ -d "$script_dir" ]; then
+        run_script "$package_name"
+    elif [ -d "$ext_dir" ]; then
+        echo -e "${BLUE}Extension ${CYAN}$package_name${BLUE} is installed${NC}"
+        echo -e "${YELLOW}Extensions run in your browser, not from command line${NC}"
     else
         echo -e "${YELLOW}Package ${CYAN}$package_name${YELLOW} found but not installed${NC}"
         if check_user_consent "Would you like to install it?"; then
             install_package "$package_name"
             if [ $? -eq 0 ]; then
-                run_package "$package_name"
+                # Try to run it after installation
+                if [ -d "$ARAISE_DIR/packages/$package_name" ]; then
+                    run_package "$package_name"
+                elif [ -d "$ARAISE_DIR/scripts/$package_name" ]; then
+                    run_script "$package_name"
+                fi
             fi
         else
             echo -e "${YELLOW}Operation cancelled${NC}"
@@ -481,13 +805,26 @@ case "$1" in
     "help") show_help ;;
     "install") 
         [ -z "$2" ] && { echo -e "${RED}ERROR: Package name required${NC}"; exit 1; }
-        install_package "$2" ;;
+        # Resolve alias if provided
+        if resolved_package=$(resolve_alias "$2"); then
+            echo -e "${CYAN}Resolved alias ${YELLOW}$2${CYAN} to package ${YELLOW}$resolved_package${NC}"
+            install_package "$resolved_package"
+        else
+            install_package "$2"
+        fi ;;
     "uninstall")
         [ -z "$2" ] && { echo -e "${RED}ERROR: Package name required${NC}"; exit 1; }
-        uninstall_package "$2" ;;
+        # Resolve alias if provided
+        if resolved_package=$(resolve_alias "$2"); then
+            echo -e "${CYAN}Resolved alias ${YELLOW}$2${CYAN} to package ${YELLOW}$resolved_package${NC}"
+            uninstall_package "$resolved_package"
+        else
+            uninstall_package "$2"
+        fi ;;
     "list") list_packages ;;
     "update") update_packages ;;
     "available") show_available_packages ;;
+    "aliases") list_aliases ;;
     "test") run_tests ;;
     *) handle_package_execution "$1" ;;
 esac

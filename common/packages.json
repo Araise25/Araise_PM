@@ -15,6 +15,14 @@
           "path": "."
         }
       }
+      },
+      {
+        "name": "Kill Port",
+        "type": "script",
+        "description": "Port Killer",
+        "aliases": ["killport"],
+        "repo": "https://github.com/Araise25/test_scripts.git",
+        "main_script": "killport.sh"
       }
     ]
   }

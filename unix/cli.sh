@@ -581,9 +581,9 @@ add_global_aliases() {
     # Add each alias
     echo "$aliases" | while read -r alias; do
         if [ -n "$alias" ]; then
-            # Create a function instead of an alias to handle arguments properly
+            # Create a function that directly calls the script
             echo "function $alias() {" >> "$temp_file"
-            echo "    $script_dir/$(echo "$package_json" | jq -r '.main_script // empty') \"\$@\"" >> "$temp_file"
+            echo "    cd \"$script_dir\" && ./$(echo "$package_json" | jq -r '.main_script // empty') \"\$@\"" >> "$temp_file"
             echo "}" >> "$temp_file"
         fi
     done
@@ -779,7 +779,6 @@ check_user_consent() {
     [ -z "$response" ] || [[ "$response" =~ ^[Yy] ]]
 }
 
-# Enhanced function to handle package execution or installation with alias support
 handle_package_execution() {
     local input_name="$1"
     shift  # Remove the first argument (package/alias name)
@@ -836,6 +835,7 @@ handle_package_execution() {
     if [ -d "$package_dir" ]; then
         run_package "$package_name" "${args[@]}"
     elif [ -d "$script_dir" ]; then
+        # For scripts, we don't want to pass the package name as an argument
         run_script "$package_name" "${args[@]}"
     elif [ -d "$ext_dir" ]; then
         echo -e "${BLUE}Extension ${CYAN}$package_name${BLUE} is installed${NC}"
@@ -891,18 +891,19 @@ run_script() {
         eval "$run_command ${script_args[*]}"
     elif [ -n "$main_script" ] && [ -f "$main_script" ]; then
         echo -e "${CYAN}> ./$main_script ${script_args[*]}${NC}"
-        ./"$main_script" "${script_args[@]}"
+        # Execute the script with only the actual arguments, not the script name
+        exec ./"$main_script" "${script_args[@]}"
     else
         # Look for common script files
         if [ -f "run.sh" ]; then
             echo -e "${CYAN}> ./run.sh ${script_args[*]}${NC}"
-            ./run.sh "${script_args[@]}"
+            exec ./run.sh "${script_args[@]}"
         elif [ -f "main.py" ]; then
             echo -e "${CYAN}> python main.py ${script_args[*]}${NC}"
-            python main.py "${script_args[@]}"
+            exec python main.py "${script_args[@]}"
         elif [ -f "index.js" ]; then
             echo -e "${CYAN}> node index.js ${script_args[*]}${NC}"
-            node index.js "${script_args[@]}"
+            exec node index.js "${script_args[@]}"
         else
             echo -e "${RED}ERROR: No executable script found${NC}"
             cd - >/dev/null
@@ -946,5 +947,5 @@ case "$1" in
     "aliases") list_aliases ;;
     "test") run_tests ;;
     "uninstall-araise") uninstall_araise ;;
-    *) handle_package_execution "$1" "$@" ;;
+*) handle_package_execution "$@" ;;
 esac

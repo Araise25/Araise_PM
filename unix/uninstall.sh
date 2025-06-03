@@ -17,28 +17,42 @@ read -r response
 if [ -z "$response" ] || [[ "$response" =~ ^[Yy] ]]; then
     echo -e "${YELLOW}Uninstalling Araise Package Manager...${NC}"
     
-    # Function to remove from PATH in shell config
+    # Function to remove Araise entries from shell config
     remove_from_shell_config() {
         local config_file=$1
         if [ -f "$config_file" ]; then
+            # Create a backup of the config file
+            cp "$config_file" "${config_file}.bak"
+            
             # Remove PATH and environment variable entries
-            sed -i.bak '/export PATH=.*\.araise/d' "$config_file"
-            sed -i.bak '/export ARAISE_ORG/d' "$config_file"
-            rm -f "${config_file}.bak"
-            echo -e "${GREEN}Removed Araise from $config_file${NC}"
+            sed -i '/export PATH=.*\.araise/d' "$config_file"
+            sed -i '/export ARAISE_ORG/d' "$config_file"
+            
+            # Remove all Araise-created aliases
+            sed -i '/# Araise Package Manager global aliases for/,/^alias/d' "$config_file"
+            sed -i '/^$/d' "$config_file"  # Remove empty lines
+            
+            echo -e "${GREEN}Removed Araise entries from $config_file${NC}"
         fi
     }
 
-    # Detect OS and remove accordingly
-    case "$(uname -s)" in
-        Linux*|Darwin*)
-            # Remove from common shell config files
-            remove_from_shell_config "$HOME/.bashrc"
-            remove_from_shell_config "$HOME/.zshrc"
-            remove_from_shell_config "$HOME/.profile"
-            remove_from_shell_config "$HOME/.bash_profile"
-            ;;
-    esac
+    # List of all possible shell config files
+    local shell_configs=(
+        "$HOME/.bashrc"
+        "$HOME/.zshrc"
+        "$HOME/.profile"
+        "$HOME/.bash_profile"
+        "$HOME/.bash_login"
+        "$HOME/.zprofile"
+        "/etc/profile"
+        "/etc/bash.bashrc"
+        "/etc/zsh/zshrc"
+    )
+
+    # Remove from all shell configs
+    for config in "${shell_configs[@]}"; do
+        remove_from_shell_config "$config"
+    done
 
     # Remove all Araise files and directories
     if [ -d "$ARAISE_DIR" ]; then
@@ -60,7 +74,8 @@ if [ -z "$response" ] || [[ "$response" =~ ^[Yy] ]]; then
     fi
 
     echo -e "${GREEN}Araise Package Manager has been completely removed from your system${NC}"
-    echo -e "${YELLOW}Please restart your terminal for changes to take effect${NC}"
+    echo -e "${YELLOW}Please restart your terminal or run 'source ~/.bashrc' (or your shell config) for changes to take effect${NC}"
+    echo -e "${YELLOW}Note: If you still see Araise aliases, you may need to manually check your shell configuration files${NC}"
 else
     echo -e "${YELLOW}Uninstallation cancelled${NC}"
     exit 0

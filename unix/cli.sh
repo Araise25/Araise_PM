@@ -10,7 +10,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 BOLD='\033[1m'
 
-# Base directory for araise
+# System-wide base directory for araise
 ARAISE_DIR="$HOME/.araise"
 FORGE_ORG="Araise25"
 FORGE_REPO="Araise_PM"
@@ -47,6 +47,7 @@ show_help() {
 init_aliases_file() {
     if [ ! -f "$ALIASES_FILE" ]; then
         echo '{"aliases": {}}' > "$ALIASES_FILE"
+        chmod 644 "$ALIASES_FILE"  # Make it readable by all users
     fi
 }
 
@@ -72,8 +73,9 @@ update_aliases() {
         fi
     done
     
-    # Replace the aliases file
+    # Replace the aliases file with proper permissions
     mv "$temp_aliases" "$ALIASES_FILE"
+    chmod 644 "$ALIASES_FILE"  # Make it readable by all users
     
     return 0
 }
@@ -99,23 +101,31 @@ resolve_alias() {
 
 # Function to list all aliases
 list_aliases() {
-    echo -e "${BOLD}${MAGENTA}Available Aliases${NC}"
+    echo -e "${BOLD}${MAGENTA}Araise Package Manager Aliases${NC}"
     echo -e "${CYAN}------------------------------------------${NC}"
     
-    init_aliases_file
+    local shell_config=$(detect_shell_config)
+    local found=false
     
-    # Check if aliases file has any aliases
-    local alias_count=$(jq '.aliases | length' "$ALIASES_FILE" 2>/dev/null || echo "0")
+    # Extract only Araise-created aliases from shell config
+    while IFS= read -r line; do
+        if [[ $line =~ ^#\ Araise\ Package\ Manager\ global\ aliases\ for\ (.+)$ ]]; then
+            local package_name="${BASH_REMATCH[1]}"
+            echo -e "\n${BOLD}${YELLOW}$package_name${NC}"
+            found=true
+            # Read next line which should be an alias
+            read -r next_line
+            while [[ $next_line =~ ^alias\ ([^=]+)= ]]; do
+                local alias_name="${BASH_REMATCH[1]}"
+                echo -e "  ${GREEN}$alias_name${NC}"
+                read -r next_line
+            done
+        fi
+    done < "$shell_config"
     
-    if [ "$alias_count" -eq 0 ]; then
-        echo -e "${YELLOW}No aliases available${NC}"
-        echo -e "${CYAN}Aliases are defined in package.json and updated automatically${NC}"
-    else
-        echo -e "${BOLD}Alias${NC} ${CYAN}->${NC} ${BOLD}Package${NC}"
-        echo -e "${CYAN}------------------------------------------${NC}"
-        
-        # List all aliases with their target packages
-        jq -r '.aliases | to_entries[] | "\u001b[32m\(.key)\u001b[0m \u001b[36m->\u001b[0m \u001b[1m\(.value)\u001b[0m"' "$ALIASES_FILE"
+    if [ "$found" = false ]; then
+        echo -e "${YELLOW}No Araise aliases installed${NC}"
+        echo -e "${CYAN}Use 'araise install <package>' to install packages with aliases${NC}"
     fi
     
     echo -e "${CYAN}------------------------------------------${NC}"
@@ -232,6 +242,34 @@ show_progress() {
     fi
 }
 
+# Function to update system-wide aliases
+update_system_aliases() {
+    local packages_file="$ARAISE_DIR/packages.json"
+    local shell_configs=("$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile")
+    local araise_path="$BIN_DIR/araise"
+    
+    if [ ! -f "$packages_file" ]; then
+        return 1
+    fi
+    
+    # Extract aliases from all packages
+    jq -r '.packages[] | select(.aliases != null) | .name as $pkg | .aliases[] | "\($pkg)|\(.)"' "$packages_file" | while IFS='|' read -r package_name alias; do
+        if [ -n "$alias" ] && [ -n "$package_name" ]; then
+            # Create alias for each shell config
+            for config in "${shell_configs[@]}"; do
+                if [ -f "$config" ]; then
+                    # Remove existing alias if it exists
+                    sed -i.bak "/alias $alias=/d" "$config" 2>/dev/null || true
+                    # Add new alias pointing to user's araise installation
+                    echo "# Araise Package Manager alias for $package_name" >> "$config"
+                    echo "alias $alias='$araise_path $package_name'" >> "$config"
+                    echo -e "${GREEN}Updated alias ${CYAN}$alias${GREEN} in ${YELLOW}$config${NC}"
+                fi
+            done
+        fi
+    done
+}
+
 # Updated install_package function to handle different package types
 install_package() {
     PACKAGE=$1
@@ -263,6 +301,17 @@ install_package() {
     # Update aliases after successful installation
     echo -e "${CYAN}Updating aliases...${NC}"
     update_aliases
+    update_system_aliases
+    
+    # Show the new aliases for this package
+    local package_aliases=$(echo "$PACKAGE_JSON" | jq -r '.aliases[] // empty')
+    if [ -n "$package_aliases" ]; then
+        echo -e "${GREEN}New aliases available:${NC}"
+        echo "$package_aliases" | while read -r alias; do
+            echo -e "  ${CYAN}$alias${NC} -> ${YELLOW}$PACKAGE${NC}"
+        done
+        echo -e "${YELLOW}Please restart your terminal or run 'source /etc/profile' to use the new aliases${NC}"
+    fi
 }
 
 # Function to show process control info based on OS
@@ -372,6 +421,9 @@ uninstall_package() {
         echo -e "${YELLOW}Uninstalling script ${CYAN}$package_name${NC}"
         rm -rf "$script_dir"
         found=true
+        
+        # Remove global aliases
+        remove_global_aliases "$package_name"
     fi
     
     if [ "$found" = false ]; then
@@ -379,19 +431,17 @@ uninstall_package() {
         return 1
     fi
     
-    # Update aliases after uninstallation
-    echo -e "${CYAN}Updating aliases...${NC}"
-    update_aliases
-    
     echo -e "${GREEN}SUCCESS: Package uninstalled successfully!${NC}"
+    echo -e "${YELLOW}Note: You may need to manually check your shell configuration file for any remaining aliases${NC}"
 }
 
 # Updated browser extension installer
 install_browser_extension() {
     PACKAGE=$1
     JSON=$2
-    EXT_DIR="$HOME/.araise/extensions/$PACKAGE"
+    EXT_DIR="$ARAISE_DIR/extensions/$PACKAGE"
     mkdir -p "$EXT_DIR"
+    chmod 755 "$EXT_DIR"  # Make it accessible by all users
 
     echo "📦 Installing browser extension: $PACKAGE"
 
@@ -497,12 +547,74 @@ install_browser_extension() {
     esac
 }
 
-# New function to install scripts
+# Function to detect the shell configuration file
+detect_shell_config() {
+    case "$(basename "$SHELL")" in
+        zsh) echo "$HOME/.zshrc" ;;
+        bash) echo "$HOME/.bashrc" ;;
+        fish) echo "$HOME/.config/fish/config.fish" ;;
+        *) echo "$HOME/.profile" ;;
+    esac
+}
+
+# Function to add global aliases
+add_global_aliases() {
+    local package_name="$1"
+    local script_dir="$ARAISE_DIR/scripts/$package_name"
+    local shell_config=$(detect_shell_config)
+    local packages_file="$ARAISE_DIR/packages.json"
+    
+    # Get package information
+    local package_json=$(jq -r ".packages[] | select(.name == \"$package_name\")" "$packages_file")
+    local aliases=$(echo "$package_json" | jq -r '.aliases[] // empty')
+    
+    if [ -z "$aliases" ]; then
+        return 0
+    fi
+    
+    # Create a temporary file for the aliases
+    local temp_file=$(mktemp)
+    
+    # Add header comment
+    echo "# Araise Package Manager global aliases for $package_name" >> "$temp_file"
+    
+    # Add each alias
+    echo "$aliases" | while read -r alias; do
+        if [ -n "$alias" ]; then
+            # Create a function instead of an alias to handle arguments properly
+            echo "function $alias() {" >> "$temp_file"
+            echo "    $script_dir/$(echo "$package_json" | jq -r '.main_script // empty') \"\$@\"" >> "$temp_file"
+            echo "}" >> "$temp_file"
+        fi
+    done
+    
+    # Append to shell config
+    cat "$temp_file" >> "$shell_config"
+    rm "$temp_file"
+    
+    echo -e "${GREEN}Added global aliases to ${YELLOW}$shell_config${NC}"
+    echo -e "${YELLOW}Please run 'source $shell_config' to use the new aliases${NC}"
+}
+
+# Function to remove global aliases
+remove_global_aliases() {
+    local package_name="$1"
+    local shell_config=$(detect_shell_config)
+    
+    # Remove the alias block for this package
+    sed -i "/# Araise Package Manager global aliases for $package_name/,/^alias/d" "$shell_config"
+    sed -i "/^$/d" "$shell_config"  # Remove empty lines
+    
+    echo -e "${GREEN}Removed global aliases for ${CYAN}$package_name${NC} from ${YELLOW}$shell_config${NC}"
+}
+
+# Updated install_script function
 install_script() {
     PACKAGE=$1
     JSON=$2
-    SCRIPT_DIR="$HOME/.araise/scripts/$PACKAGE"
+    SCRIPT_DIR="$ARAISE_DIR/scripts/$PACKAGE"
     mkdir -p "$SCRIPT_DIR"
+    chmod 755 "$SCRIPT_DIR"
 
     echo "🔧 Installing script: $PACKAGE"
 
@@ -532,67 +644,15 @@ install_script() {
     
     rm -rf "$TMP_DIR"
 
-    # Make script executable if there's a main script file
-    MAIN_SCRIPT=$(echo "$JSON" | jq -r ".main_script // empty")
-    if [ -n "$MAIN_SCRIPT" ] && [ -f "$SCRIPT_DIR/$MAIN_SCRIPT" ]; then
-        chmod +x "$SCRIPT_DIR/$MAIN_SCRIPT"
-        echo "✅ Made $MAIN_SCRIPT executable"
+    # Make all .sh files executable
+    find "$SCRIPT_DIR" -name "*.sh" -type f -exec chmod 755 {} \;
+
+    # Ask about global aliases
+    if check_user_consent "Would you like to create global aliases for this script?"; then
+        add_global_aliases "$PACKAGE"
     fi
 
     echo "✅ Script $PACKAGE installed successfully to: $SCRIPT_DIR"
-}
-
-# New function to run scripts
-run_script() {
-    local script_name="$1"
-    local script_dir="$ARAISE_DIR/scripts/$script_name"
-    
-    if [ ! -d "$script_dir" ]; then
-        echo -e "${RED}ERROR: Script ${CYAN}$script_name${RED} not installed!${NC}"
-        return 1
-    fi
-    
-    local packages_file="$ARAISE_DIR/packages.json"
-    if [ ! -f "$packages_file" ]; then
-        echo -e "${RED}ERROR: Package registry not found!${NC}"
-        return 1
-    fi
-    
-    # Get script information
-    local script_json=$(jq -r ".packages[] | select(.name == \"$script_name\")" "$packages_file")
-    local main_script=$(echo "$script_json" | jq -r ".main_script // empty")
-    local run_command=$(echo "$script_json" | jq -r ".run_command // empty")
-    
-    cd "$script_dir" || return 1
-    
-    echo -e "${YELLOW}Running script: ${CYAN}$script_name${NC}"
-    
-    if [ -n "$run_command" ]; then
-        echo -e "${CYAN}> $run_command${NC}"
-        eval "$run_command"
-    elif [ -n "$main_script" ] && [ -f "$main_script" ]; then
-        echo -e "${CYAN}> ./$main_script${NC}"
-        ./"$main_script"
-    else
-        # Look for common script files
-        if [ -f "run.sh" ]; then
-            echo -e "${CYAN}> ./run.sh${NC}"
-            ./run.sh
-        elif [ -f "main.py" ]; then
-            echo -e "${CYAN}> python main.py${NC}"
-            python main.py
-        elif [ -f "index.js" ]; then
-            echo -e "${CYAN}> node index.js${NC}"
-            node index.js
-        else
-            echo -e "${RED}ERROR: No executable script found${NC}"
-            cd - >/dev/null
-            return 1
-        fi
-    fi
-    
-    cd - >/dev/null
-    return 0
 }
 
 # Function to show available packages with types and aliases
@@ -676,11 +736,13 @@ update_packages() {
             # Update aliases after updating packages
             echo -e "${CYAN}Updating aliases...${NC}"
             update_aliases
+            update_system_aliases
             local alias_count=$(jq '.aliases | length' "$ALIASES_FILE" 2>/dev/null || echo "0")
             echo -e "${GREEN}Found ${CYAN}$alias_count${GREEN} aliases in registry${NC}"
             
             echo -e "${CYAN}Use ${YELLOW}araise available${CYAN} to list available packages${NC}"
             echo -e "${CYAN}Use ${YELLOW}araise aliases${CYAN} to list available aliases${NC}"
+            echo -e "${YELLOW}Please restart your terminal or run 'source /etc/profile' to use the updated aliases${NC}"
             
             return 0
         else
@@ -720,6 +782,8 @@ check_user_consent() {
 # Enhanced function to handle package execution or installation with alias support
 handle_package_execution() {
     local input_name="$1"
+    shift  # Remove the first argument (package/alias name)
+    local args=("$@")  # Store remaining arguments
     local packages_file="$ARAISE_DIR/packages.json"
     
     # First, try to resolve the alias
@@ -770,9 +834,9 @@ handle_package_execution() {
 
     # Check what type of package is installed and run accordingly
     if [ -d "$package_dir" ]; then
-        run_package "$package_name"
+        run_package "$package_name" "${args[@]}"
     elif [ -d "$script_dir" ]; then
-        run_script "$package_name"
+        run_script "$package_name" "${args[@]}"
     elif [ -d "$ext_dir" ]; then
         echo -e "${BLUE}Extension ${CYAN}$package_name${BLUE} is installed${NC}"
         echo -e "${YELLOW}Extensions run in your browser, not from command line${NC}"
@@ -783,9 +847,9 @@ handle_package_execution() {
             if [ $? -eq 0 ]; then
                 # Try to run it after installation
                 if [ -d "$ARAISE_DIR/packages/$package_name" ]; then
-                    run_package "$package_name"
+                    run_package "$package_name" "${args[@]}"
                 elif [ -d "$ARAISE_DIR/scripts/$package_name" ]; then
-                    run_script "$package_name"
+                    run_script "$package_name" "${args[@]}"
                 fi
             fi
         else
@@ -793,6 +857,61 @@ handle_package_execution() {
             return 1
         fi
     fi
+}
+
+# Function to run scripts
+run_script() {
+    local script_name="$1"
+    shift  # Remove the script name from arguments
+    local script_args=("$@")  # Store remaining arguments
+    local script_dir="$ARAISE_DIR/scripts/$script_name"
+    
+    if [ ! -d "$script_dir" ]; then
+        echo -e "${RED}ERROR: Script ${CYAN}$script_name${RED} not installed!${NC}"
+        return 1
+    fi
+    
+    local packages_file="$ARAISE_DIR/packages.json"
+    if [ ! -f "$packages_file" ]; then
+        echo -e "${RED}ERROR: Package registry not found!${NC}"
+        return 1
+    fi
+    
+    # Get script information
+    local script_json=$(jq -r ".packages[] | select(.name == \"$script_name\")" "$packages_file")
+    local main_script=$(echo "$script_json" | jq -r ".main_script // empty")
+    local run_command=$(echo "$script_json" | jq -r ".run_command // empty")
+    
+    cd "$script_dir" || return 1
+    
+    echo -e "${YELLOW}Running script: ${CYAN}$script_name${NC}"
+    
+    if [ -n "$run_command" ]; then
+        echo -e "${CYAN}> $run_command ${script_args[*]}${NC}"
+        eval "$run_command ${script_args[*]}"
+    elif [ -n "$main_script" ] && [ -f "$main_script" ]; then
+        echo -e "${CYAN}> ./$main_script ${script_args[*]}${NC}"
+        ./"$main_script" "${script_args[@]}"
+    else
+        # Look for common script files
+        if [ -f "run.sh" ]; then
+            echo -e "${CYAN}> ./run.sh ${script_args[*]}${NC}"
+            ./run.sh "${script_args[@]}"
+        elif [ -f "main.py" ]; then
+            echo -e "${CYAN}> python main.py ${script_args[*]}${NC}"
+            python main.py "${script_args[@]}"
+        elif [ -f "index.js" ]; then
+            echo -e "${CYAN}> node index.js ${script_args[*]}${NC}"
+            node index.js "${script_args[@]}"
+        else
+            echo -e "${RED}ERROR: No executable script found${NC}"
+            cd - >/dev/null
+            return 1
+        fi
+    fi
+    
+    cd - >/dev/null
+    return 0
 }
 
 # Main command handler
@@ -826,5 +945,6 @@ case "$1" in
     "available") show_available_packages ;;
     "aliases") list_aliases ;;
     "test") run_tests ;;
-    *) handle_package_execution "$1" ;;
+    "uninstall-araise") uninstall_araise ;;
+    *) handle_package_execution "$1" "$@" ;;
 esac

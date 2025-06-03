@@ -246,7 +246,6 @@ show_progress() {
 update_system_aliases() {
     local packages_file="$ARAISE_DIR/packages.json"
     local shell_configs=("$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile")
-    local araise_path="$BIN_DIR/araise"
     
     if [ ! -f "$packages_file" ]; then
         return 1
@@ -255,14 +254,18 @@ update_system_aliases() {
     # Extract aliases from all packages
     jq -r '.packages[] | select(.aliases != null) | .name as $pkg | .aliases[] | "\($pkg)|\(.)"' "$packages_file" | while IFS='|' read -r package_name alias; do
         if [ -n "$alias" ] && [ -n "$package_name" ]; then
+            # Get the main script name
+            local main_script=$(jq -r ".packages[] | select(.name == \"$package_name\") | .main_script // empty" "$packages_file")
+            local script_path="$ARAISE_DIR/scripts/$package_name/$main_script"
+            
             # Create alias for each shell config
             for config in "${shell_configs[@]}"; do
                 if [ -f "$config" ]; then
                     # Remove existing alias if it exists
                     sed -i.bak "/alias $alias=/d" "$config" 2>/dev/null || true
-                    # Add new alias pointing to user's araise installation
+                    # Add new alias pointing directly to the script
                     echo "# Araise Package Manager alias for $package_name" >> "$config"
-                    echo "alias $alias='$araise_path $package_name'" >> "$config"
+                    echo "alias $alias='$script_path'" >> "$config"
                     echo -e "${GREEN}Updated alias ${CYAN}$alias${GREEN} in ${YELLOW}$config${NC}"
                 fi
             done
@@ -567,6 +570,7 @@ add_global_aliases() {
     # Get package information
     local package_json=$(jq -r ".packages[] | select(.name == \"$package_name\")" "$packages_file")
     local aliases=$(echo "$package_json" | jq -r '.aliases[] // empty')
+    local main_script=$(echo "$package_json" | jq -r '.main_script // empty')
     
     if [ -z "$aliases" ]; then
         return 0
@@ -581,10 +585,8 @@ add_global_aliases() {
     # Add each alias
     echo "$aliases" | while read -r alias; do
         if [ -n "$alias" ]; then
-            # Create a function that directly calls the script
-            echo "function $alias() {" >> "$temp_file"
-            echo "    cd \"$script_dir\" && ./$(echo "$package_json" | jq -r '.main_script // empty') \"\$@\"" >> "$temp_file"
-            echo "}" >> "$temp_file"
+            # Create an alias that directly points to the script
+            echo "alias $alias='$script_dir/$main_script'" >> "$temp_file"
         fi
     done
     

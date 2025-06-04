@@ -48,10 +48,18 @@ get_cli_scripts() {
 
     echo -e "${YELLOW}Downloading CLI scripts from repository...${NC}"
     if command -v curl &> /dev/null; then
-        if curl -fsSL "${cli_url}/unix/cli.sh" > "$ARAISE_DIR/cli.sh" && \
+        if curl -fsSL "${cli_url}/unix/cli.sh" > "$ARAISE_DIR/cli.sh"; then
             success=true
         fi
+    elif command -v wget &> /dev/null; then
+        if wget -q -O "$ARAISE_DIR/cli.sh" "${cli_url}/unix/cli.sh"; then
+            success=true
+        fi
+    else
+        echo -e "${RED}Error: Neither curl nor wget is installed${NC}"
+        return 1
     fi
+
     if [ "$success" = true ]; then
         return 0
     else

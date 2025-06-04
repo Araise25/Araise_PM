@@ -4,28 +4,26 @@ Araise is a cross-platform package manager designed to simplify the installation
 
 ## ⚡️ Quick Installation
 
-### Windows
-```powershell
-$script = Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/Araise25/Araise_PM/main/windows/install.ps1"
-$script.Content | Out-File -FilePath "$env:TEMP\araise_install.ps1"
-& "$env:TEMP\araise_install.ps1"
-```
-
 ### Linux/macOS
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Araise25/Araise_PM/main/unix/install.sh | bash
 ```
 
+### Windows Users
+For Windows users, we recommend using Windows Subsystem for Linux (WSL) to run Araise. Follow these steps:
+
+1. Install WSL by opening PowerShell as Administrator and running:
+```powershell
+wsl --install
+```
+
+2. After WSL installation and restart, open your WSL terminal and run the Linux installation command above.
+
 ## 🚀 Getting Started
 
 After installation, either restart your terminal or:
 
-### Windows
-```powershell
-. $PROFILE
-```
-
-### Linux/macOS
+### Linux/macOS/WSL
 ```bash
 source ~/.bashrc    # For Bash
 source ~/.zshrc     # For Zsh
@@ -58,12 +56,7 @@ araise <package-name>
 
 ## 🛠 System Requirements
 
-### Windows
-- PowerShell 5.1 or later
-- Git
-- Internet connection
-
-### Linux/macOS
+### Linux/macOS/WSL
 - Bash or Zsh shell
 - Git
 - curl or wget
@@ -92,16 +85,7 @@ araise <package-name>
 
 ## 🔧 Troubleshooting
 
-### Windows
-```powershell
-# Fix execution policy issues
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# Refresh PATH
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-```
-
-### Linux/macOS
+### Linux/macOS/WSL
 ```bash
 # Fix permissions
 chmod +x ~/.araise/bin/araise
@@ -114,12 +98,7 @@ source ~/.bashrc
 
 ## 🗑 Uninstallation
 
-### Windows
-```powershell
-uninstall-araise
-```
-
-### Linux/macOS
+### Linux/macOS/WSL
 ```bash
 uninstall-araise
 ```

@@ -471,9 +471,8 @@ install_browser_extension() {
 
     case $BROWSER in
         firefox)
-            # Check if it's a repo or published link
-            FIREFOX_REPO=$(echo "$JSON" | jq -r ".browsers.firefox.repo // empty")
             FIREFOX_LINK=$(echo "$JSON" | jq -r ".browsers.firefox.link // empty")
+            FIREFOX_REPO=$(echo "$JSON" | jq -r ".browsers.firefox.repo // empty")
             
             if [ -n "$FIREFOX_LINK" ]; then
                 echo "🔗 Opening Firefox extension page..."
@@ -485,31 +484,33 @@ install_browser_extension() {
                     echo "🌐 Please visit: $FIREFOX_LINK"
                 fi
             elif [ -n "$FIREFOX_REPO" ]; then
-                if ! command -v web-ext >/dev/null; then
-                    echo "❌ 'web-ext' not found. Install it with: npm install -g web-ext"
-                    exit 1
+                echo "📥 Manual Installation Instructions for Firefox:"
+                echo "1. Visit the GitHub repository: $FIREFOX_REPO"
+                echo "2. Click on 'Code' (green button) and select 'Download ZIP'"
+                echo "3. Extract the downloaded ZIP file"
+                echo "4. Open Firefox and go to about:debugging"
+                echo "5. Click 'This Firefox' on the left sidebar"
+                echo "6. Click 'Load Temporary Add-on'"
+                echo "7. Navigate to the extracted folder and select the manifest.json file"
+                echo "8. The extension should now be installed temporarily"
+                echo ""
+                echo "🔗 Opening GitHub repository..."
+                if command -v xdg-open >/dev/null; then
+                    xdg-open "$FIREFOX_REPO"
+                elif command -v open >/dev/null; then
+                    open "$FIREFOX_REPO"
+                else
+                    echo "🌐 Please visit: $FIREFOX_REPO"
                 fi
-
-                PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.firefox.path")
-
-                TMP_DIR=$(mktemp -d)
-                echo "🌐 Cloning $FIREFOX_REPO..."
-                git clone --depth 1 "$FIREFOX_REPO" "$TMP_DIR"
-                cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
-                rm -rf "$TMP_DIR"
-
-                echo "🚀 Launching Firefox with extension loaded..."
-                web-ext run --source-dir="$EXT_DIR"
             else
-                echo "❌ No Firefox installation method found"
+                echo "❌ No installation source provided"
                 exit 1
             fi
             ;;
         
         chrome|chromium|brave)
-            # Check if it's a repo or published link
-            CHROME_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.repo // empty")
             CHROME_LINK=$(echo "$JSON" | jq -r ".browsers.chrome.link // empty")
+            CHROME_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.repo // empty")
             
             if [ -n "$CHROME_LINK" ]; then
                 echo "🔗 Opening Chrome Web Store..."
@@ -521,25 +522,26 @@ install_browser_extension() {
                     echo "🌐 Please visit: $CHROME_LINK"
                 fi
             elif [ -n "$CHROME_REPO" ]; then
-                PATH_INSIDE_REPO=$(echo "$JSON" | jq -r ".browsers.chrome.path")
-
-                TMP_DIR=$(mktemp -d)
-                echo "🌐 Cloning $CHROME_REPO..."
-                git clone --depth 1 "$CHROME_REPO" "$TMP_DIR"
-                cp -r "$TMP_DIR/$PATH_INSIDE_REPO"/* "$EXT_DIR"
-                rm -rf "$TMP_DIR"
-
-                echo "✅ Extension files copied to: $EXT_DIR"
-                echo "🔓 Opening extension page..."
+                echo "📥 Manual Installation Instructions for Chrome/Chromium/Brave:"
+                echo "1. Visit the GitHub repository: $CHROME_REPO"
+                echo "2. Click on 'Code' (green button) and select 'Download ZIP'"
+                echo "3. Extract the downloaded ZIP file"
+                echo "4. Open Chrome/Chromium/Brave and go to chrome://extensions"
+                echo "5. Enable 'Developer mode' in the top right"
+                echo "6. Click 'Load unpacked'"
+                echo "7. Select the extracted folder"
+                echo "8. The extension should now be installed"
+                echo ""
+                echo "🔗 Opening GitHub repository..."
                 if command -v xdg-open >/dev/null; then
-                    xdg-open "chrome://extensions"
+                    xdg-open "$CHROME_REPO"
                 elif command -v open >/dev/null; then
-                    open "chrome://extensions"
+                    open "$CHROME_REPO"
+                else
+                    echo "🌐 Please visit: $CHROME_REPO"
                 fi
-
-                echo "🧠 Load the unpacked extension manually from: $EXT_DIR"
             else
-                echo "❌ No Chrome installation method found"
+                echo "❌ No installation source provided"
                 exit 1
             fi
             ;;

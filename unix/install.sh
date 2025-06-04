@@ -51,7 +51,7 @@ get_cli_scripts() {
         if curl -fsSL "${cli_url}/unix/cli.sh" > "$ARAISE_DIR/cli.sh" && \
             success=true
         fi
-
+    fi
     if [ "$success" = true ]; then
         return 0
     else

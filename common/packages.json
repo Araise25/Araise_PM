@@ -1,36 +1,59 @@
-  {
-    "packages": [
-      {
-        "name": "ysb",
-        "version": "1.0.0",
-        "description": "YouTube Sidebar - A browser extension to enhance YouTube experience",
-        "type": "extension",
-        "browsers": {
-        "firefox": {
-          "repo": "https://github.com/Araise25/YSB",
-          "path": "."
-        },
-        "chrome": {
-          "repo": "https://github.com/Araise25/YSB",
-          "path": "."
+{
+    "packages": {
+      "extensions": [
+        {
+          "name": "ysb",
+          "version": "1.0.0",
+          "description": "YouTube Sidebar - A browser extension to enhance YouTube experience",
+          "type": "extension",
+          "browsers": {
+            "firefox": {
+              "repo": "https://github.com/Araise25/YSB",
+              "path": ".",
+              "link": "https://addons.mozilla.org/en-US/firefox/addon/youtube-sidebar/"
+            }
+          },
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["youtube", "browser-extension", "productivity"]
         }
-      }
-      },
-      {
-        "name": "Kill Port",
-        "type": "script",
-        "description": "Port Killer",
-        "aliases": ["killport"],
-        "repo": "https://github.com/Araise25/test_scripts.git",
-        "main_script": "killport.sh"
-      },
-      {
-        "name": "Test Script",
-        "type": "script",
-        "description": "Test Script",
-        "aliases": ["test"],
-        "repo": "https://github.com/Araise25/test_scripts.git",
-        "main_script": "test.sh"
-      }
-    ]
+      ],
+      "scripts": [
+        {
+          "name": "Kill Port",
+          "type": "script",
+          "description": "Port Killer - A utility script to kill processes running on specific ports",
+          "aliases": ["killport"],
+          "repo": "https://github.com/Araise25/test_scripts.git",
+          "path": ".",
+          "main_script": "killport.sh",
+          "run_command": "bash killport.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "system", "port-management"],
+          "dependencies": {
+            "required": ["bash"],
+            "optional": []
+          }
+        },
+        {
+          "name": "Test Script",
+          "type": "script",
+          "description": "Test Script - A utility script for testing purposes",
+          "aliases": ["test"],
+          "repo": "https://github.com/Araise25/test_scripts.git",
+          "path": ".",
+          "main_script": "test.sh",
+          "run_command": "bash test.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "testing"],
+          "dependencies": {
+            "required": ["bash"],
+            "optional": []
+          }
+        }
+      ],
+      "apps": []
+    }
   }

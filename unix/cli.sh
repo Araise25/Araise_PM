@@ -65,12 +65,18 @@ update_aliases() {
     local temp_aliases=$(mktemp)
     echo '{"aliases": {}}' > "$temp_aliases"
     
-    # Extract aliases from all packages
-    jq -r '.packages[] | select(.aliases != null) | .name as $pkg | .aliases[] | "\($pkg)|\(.)"' "$packages_file" | while IFS='|' read -r package_name alias; do
-        if [ -n "$alias" ] && [ -n "$package_name" ]; then
-            # Add alias to temp file
-            jq --arg alias "$alias" --arg pkg "$package_name" '.aliases[$alias] = $pkg' "$temp_aliases" > "${temp_aliases}.tmp" && mv "${temp_aliases}.tmp" "$temp_aliases"
-        fi
+    # Extract aliases from all packages in all categories
+    for category in extensions scripts apps; do
+        # Get all packages in this category
+        local packages=$(jq -r ".packages.$category // []" "$packages_file")
+        
+        # For each package in the category
+        echo "$packages" | jq -r '.[] | select(.aliases != null) | .name as $pkg | .aliases[] | [$pkg, .] | @tsv' 2>/dev/null | while IFS=$'\t' read -r package_name alias; do
+            if [ -n "$alias" ] && [ -n "$package_name" ]; then
+                # Add alias to temp file
+                jq --arg alias "$alias" --arg pkg "$package_name" '.aliases[$alias] = $pkg' "$temp_aliases" > "${temp_aliases}.tmp" && mv "${temp_aliases}.tmp" "$temp_aliases"
+            fi
+        done
     done
     
     # Replace the aliases file with proper permissions
@@ -273,13 +279,13 @@ update_system_aliases() {
     done
 }
 
-# Updated install_package function to handle different package types
 install_package() {
     PACKAGE=$1
     REGISTRY_URL="https://raw.githubusercontent.com/Araise25/Araise_PM/main/common/packages.json"
     JSON=$(curl -s "$REGISTRY_URL")
 
-    PACKAGE_JSON=$(echo "$JSON" | jq -r ".packages[] | select(.name == \"$PACKAGE\")")
+    # Search across all package categories (extensions, scripts, apps)
+    PACKAGE_JSON=$(echo "$JSON" | jq -r "(.packages.extensions[], .packages.scripts[], .packages.apps[]) | select(.name == \"$PACKAGE\")")
 
     if [ -z "$PACKAGE_JSON" ]; then
         echo "❌ Package '$PACKAGE' not found"
@@ -773,7 +779,6 @@ update_packages() {
     return 1
 }
 
-# Function to check if package exists in registry (with alias resolution)
 check_package_exists() {
     local package_name="$1"
     local packages_file="$ARAISE_DIR/packages.json"
@@ -784,7 +789,8 @@ check_package_exists() {
     
     # Convert package name to uppercase for case-insensitive comparison
     local package_upper=$(echo "$package_name" | tr '[:lower:]' '[:upper:]')
-    local package_exists=$(jq -r '.packages[].name' "$packages_file" | tr '[:lower:]' '[:upper:]' | grep -x "$package_upper")
+    # Fix: Search across all categories
+    local package_exists=$(jq -r '(.packages.extensions[], .packages.scripts[], .packages.apps[]).name' "$packages_file" | tr '[:lower:]' '[:upper:]' | grep -x "$package_upper")
     [ -n "$package_exists" ]
 }
 
@@ -931,6 +937,61 @@ run_script() {
     
     cd - >/dev/null
     return 0
+}
+
+# Function to uninstall Araise
+uninstall_araise() {
+    echo -e "${YELLOW}Warning: This will completely remove Araise Package Manager and all installed packages${NC}"
+    if ! check_user_consent "Continue with uninstallation?"; then
+        echo -e "${YELLOW}Uninstallation cancelled${NC}"
+        return 1
+    fi
+
+    echo -e "${YELLOW}Uninstalling Araise Package Manager...${NC}"
+
+    # Remove Araise entries from user's shell configs
+    local shell_configs=("$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.zprofile")
+    for config in "${shell_configs[@]}"; do
+        if [ -f "$config" ]; then
+            echo -e "${CYAN}Removing Araise entries from ${YELLOW}$config${NC}"
+            sed -i.bak '/# Araise Package Manager/d' "$config" 2>/dev/null || true
+            sed -i.bak '/alias araise=/d' "$config" 2>/dev/null || true
+            sed -i.bak '/export PATH="$PATH:$HOME\/.araise\/bin"/d' "$config" 2>/dev/null || true
+            rm -f "${config}.bak" 2>/dev/null || true
+        fi
+    done
+
+    # Remove Araise entries from system-wide configs (with sudo if needed)
+    local system_configs=("/etc/profile" "/etc/bash.bashrc")
+    for config in "${system_configs[@]}"; do
+        if [ -f "$config" ]; then
+            echo -e "${CYAN}Removing Araise entries from ${YELLOW}$config${NC}"
+            if [ -w "$config" ]; then
+                sed -i.bak '/# Araise Package Manager/d' "$config" 2>/dev/null || true
+                sed -i.bak '/alias araise=/d' "$config" 2>/dev/null || true
+                sed -i.bak '/export PATH="$PATH:\/usr\/local\/araise\/bin"/d' "$config" 2>/dev/null || true
+                rm -f "${config}.bak" 2>/dev/null || true
+            else
+                echo -e "${YELLOW}Note: ${CYAN}$config${YELLOW} requires root access to modify${NC}"
+                echo -e "${YELLOW}You may need to manually remove Araise entries from this file${NC}"
+            fi
+        fi
+    done
+
+    # Remove Araise directory and all installed packages
+    echo -e "${CYAN}Removing Araise directory and all installed packages${NC}"
+    rm -rf "$ARAISE_DIR" 2>/dev/null || true
+    rm -rf "$HOME/.local/bin/araise" 2>/dev/null || true
+    rm -rf "$HOME/.local/bin/uninstall-araise" 2>/dev/null || true
+
+    # Remove Araise man page
+    echo -e "${CYAN}Removing Araise man page${NC}"
+    rm -f "/usr/local/share/man/man1/araise.1" 2>/dev/null || true
+    rm -f "/usr/local/share/man/man1/araise.1.gz" 2>/dev/null || true
+
+    echo -e "${GREEN}Araise Package Manager has been completely removed from your system${NC}"
+    echo -e "${YELLOW}Please restart your terminal or run 'source ~/.bashrc' (or your shell config) for changes to take effect${NC}"
+    echo -e "${YELLOW}Note: If you still see Araise aliases, you may need to manually check your shell configuration files${NC}"
 }
 
 # Main command handler

@@ -71,7 +71,7 @@ update_aliases() {
         local packages=$(jq -r ".packages.$category // []" "$packages_file")
         
         # For each package in the category
-        echo "$packages" | jq -r '.[] | select(.aliases != null) | .name as $pkg | .aliases[] | [$pkg, .] | @tsv' 2>/dev/null | while IFS=$'\t' read -r package_name alias; do
+        echo "$packages" | jq -r '.[] | select(.aliases != null and (.aliases|type)=="array") | .name as $pkg | .aliases[] | [$pkg, .] | @tsv' 2>/dev/null | while IFS=$'\t' read -r package_name alias; do
             if [ -n "$alias" ] && [ -n "$package_name" ]; then
                 # Add alias to temp file
                 jq --arg alias "$alias" --arg pkg "$package_name" '.aliases[$alias] = $pkg' "$temp_aliases" > "${temp_aliases}.tmp" && mv "${temp_aliases}.tmp" "$temp_aliases"
@@ -110,28 +110,16 @@ list_aliases() {
     echo -e "${BOLD}${MAGENTA}Araise Package Manager Aliases${NC}"
     echo -e "${CYAN}------------------------------------------${NC}"
     
-    local shell_config=$(detect_shell_config)
-    local found=false
+    init_aliases_file # Ensure aliases.json exists
     
-    # Extract only Araise-created aliases from shell config
-    while IFS= read -r line; do
-        if [[ $line =~ ^#\ Araise\ Package\ Manager\ global\ aliases\ for\ (.+)$ ]]; then
-            local package_name="${BASH_REMATCH[1]}"
-            echo -e "\n${BOLD}${YELLOW}$package_name${NC}"
-            found=true
-            # Read next line which should be an alias
-            read -r next_line
-            while [[ $next_line =~ ^alias\ ([^=]+)= ]]; do
-                local alias_name="${BASH_REMATCH[1]}"
-                echo -e "  ${GREEN}$alias_name${NC}"
-                read -r next_line
-            done
-        fi
-    done < "$shell_config"
+    local alias_count=$(jq '.aliases | length' "$ALIASES_FILE" 2>/dev/null)
     
-    if [ "$found" = false ]; then
-        echo -e "${YELLOW}No Araise aliases installed${NC}"
-        echo -e "${CYAN}Use 'araise install <package>' to install packages with aliases${NC}"
+    if [ "$alias_count" -eq 0 ]; then
+        echo -e "${YELLOW}No Araise aliases defined yet.${NC}"
+        echo -e "${CYAN}Aliases are created when installing packages that define them.${NC}"
+    else
+        jq -r '.aliases | to_entries[] | "\u001b[32m  * \u001b[1m\(.key)\u001b[0m -> \u001b[36m\(.value)\u001b[0m"' "$ALIASES_FILE"
+        echo -e "\n${YELLOW}Note: You might need to restart your terminal or run 'source /etc/profile' (or your shell config) to activate new aliases.${NC}"
     fi
     
     echo -e "${CYAN}------------------------------------------${NC}"
@@ -177,18 +165,25 @@ list_packages() {
     done
     
     # List scripts
-    for script_dir in "$ARAISE_DIR/scripts"/*; do
-        if [ -d "$script_dir" ]; then
-            local script_name=$(basename "$script_dir")
-            echo -e "${GREEN}*${NC} ${BOLD}$script_name${NC} ${MAGENTA}(script)${NC}"
-            
-            # Show aliases for this script if any
-            local script_aliases=$(jq -r ".aliases | to_entries[] | select(.value == \"$script_name\") | .key" "$ALIASES_FILE" 2>/dev/null | tr '\n' ' ')
-            if [ -n "$script_aliases" ]; then
-                echo -e "  ${YELLOW}Aliases:${NC} ${CYAN}$script_aliases${NC}"
-            fi
-            
-            installed=true
+    for script_repo_dir in "$ARAISE_DIR/scripts/"*; do
+        if [ -d "$script_repo_dir" ]; then
+            repo_name=$(basename "$script_repo_dir")
+            # For each script package, check if it belongs to this repo
+            jq -c '.packages.scripts[]' "$ARAISE_DIR/packages.json" | while read -r pkg; do
+                pkg_name=$(echo "$pkg" | jq -r '.name')
+                pkg_repo=$(echo "$pkg" | jq -r '.repo')
+                pkg_main=$(echo "$pkg" | jq -r '.main_script // empty')
+                repo_base=$(basename "$pkg_repo" .git | tr ' ' '_')
+                if [ "$repo_base" = "$repo_name" ] && [ -f "$script_repo_dir/$pkg_main" ]; then
+                    echo -e "${GREEN}*${NC} ${BOLD}$pkg_name${NC} ${MAGENTA}(script)${NC}"
+                    # Show aliases for this script if any
+                    script_aliases=$(jq -r ".aliases | to_entries[] | select(.value == \"$pkg_name\") | .key" "$ALIASES_FILE" 2>/dev/null | tr '\n' ' ')
+                    if [ -n "$script_aliases" ]; then
+                        echo -e "  ${YELLOW}Aliases:${NC} ${CYAN}$script_aliases${NC}"
+                    fi
+                    installed=true
+                fi
+            done
         fi
     done
     
@@ -282,7 +277,28 @@ update_system_aliases() {
 install_package() {
     PACKAGE=$1
     REGISTRY_URL="https://raw.githubusercontent.com/Araise25/Araise_PM/main/common/packages.json"
-    JSON=$(curl -s "$REGISTRY_URL")
+    
+    # Use mktemp for safety and robustness
+    local temp_json_file=$(mktemp)
+    
+    echo -e "${YELLOW}Fetching package registry from ${REGISTRY_URL}...${NC}"
+    if ! curl -fsSL "$REGISTRY_URL" -o "$temp_json_file"; then
+        echo -e "${RED}ERROR: Failed to download package registry from ${REGISTRY_URL}.${NC}"
+        echo -e "${RED}Please check your internet connection or the registry URL.${NC}"
+        rm -f "$temp_json_file"
+        exit 1
+    fi
+
+    # Validate JSON content before proceeding
+    if ! jq empty "$temp_json_file" 2>/dev/null; then
+        echo -e "${RED}ERROR: Downloaded package registry is not valid JSON.${NC}"
+        rm -f "$temp_json_file"
+        exit 1
+    fi
+    
+    # Read the JSON from the temporary file
+    JSON=$(cat "$temp_json_file")
+    rm -f "$temp_json_file" # Clean up temp file
 
     # Search across all package categories (extensions, scripts, apps)
     PACKAGE_JSON=$(echo "$JSON" | jq -r "(.packages.extensions[], .packages.scripts[], .packages.apps[]) | select(.name == \"$PACKAGE\")")
@@ -293,6 +309,66 @@ install_package() {
     fi
 
     TYPE=$(echo "$PACKAGE_JSON" | jq -r ".type")
+    local repo_url=$(echo "$PACKAGE_JSON" | jq -r ".repo")
+    local repo_name=$(basename "$repo_url" .git)
+    local safe_repo_name=$(echo "$repo_name" | tr ' ' '_')
+    local main_script=$(echo "$PACKAGE_JSON" | jq -r ".main_script // empty")
+    local path_inside_repo=$(echo "$PACKAGE_JSON" | jq -r ".path // \".\"")
+
+    # Check if package is already installed
+    local package_dir="$ARAISE_DIR/packages/$PACKAGE"
+    local ext_dir="$ARAISE_DIR/extensions/$PACKAGE"
+    local script_dir="$ARAISE_DIR/scripts/$safe_repo_name"
+    
+    local is_installed=false
+    
+    if [ "$TYPE" = "extension" ]; then
+        # For extensions, check if the extension directory exists and has content
+        if [ -d "$ext_dir" ] && [ -n "$(ls -A "$ext_dir" 2>/dev/null)" ]; then
+            is_installed=true
+        fi
+    elif [ -d "$package_dir" ]; then
+        is_installed=true
+    elif [ "$TYPE" = "script" ] && [ -d "$script_dir" ]; then
+        # For scripts, check if the specific package files exist
+        if [ -n "$main_script" ]; then
+            if [ "$path_inside_repo" = "." ]; then
+                if [ -f "$script_dir/$main_script" ]; then
+                    # Check if this is the correct package's script
+                    local script_package=$(jq -r "(.packages.scripts[]) | select(.main_script == \"$main_script\") | .name" "$ARAISE_DIR/packages.json")
+                    if [ "$script_package" = "$PACKAGE" ]; then
+                        is_installed=true
+                    fi
+                fi
+            else
+                if [ -f "$script_dir/$path_inside_repo/$main_script" ]; then
+                    # Check if this is the correct package's script
+                    local script_package=$(jq -r "(.packages.scripts[]) | select(.main_script == \"$main_script\") | .name" "$ARAISE_DIR/packages.json")
+                    if [ "$script_package" = "$PACKAGE" ]; then
+                        is_installed=true
+                    fi
+                fi
+            fi
+        elif [ "$path_inside_repo" != "." ]; then
+            if [ -d "$script_dir/$path_inside_repo" ]; then
+                # Check if this is the correct package's directory
+                local script_package=$(jq -r "(.packages.scripts[]) | select(.path == \"$path_inside_repo\") | .name" "$ARAISE_DIR/packages.json")
+                if [ "$script_package" = "$PACKAGE" ]; then
+                    is_installed=true
+                fi
+            fi
+        fi
+    fi
+    
+    if [ "$is_installed" = true ]; then
+        echo -e "${YELLOW}Package ${CYAN}$PACKAGE${YELLOW} is already installed${NC}"
+        if ! check_user_consent "Would you like to reinstall it?"; then
+            echo -e "${YELLOW}Installation cancelled${NC}"
+            return 1
+        fi
+        # If user wants to reinstall, first uninstall the existing package
+        uninstall_package "$PACKAGE"
+    fi
 
     case "$TYPE" in
         "extension")
@@ -313,7 +389,7 @@ install_package() {
     update_system_aliases
     
     # Show the new aliases for this package
-    local package_aliases=$(echo "$PACKAGE_JSON" | jq -r '.aliases[] // empty')
+    local package_aliases=$(echo "$PACKAGE_JSON" | jq -r '.aliases[] // empty' 2>/dev/null)
     if [ -n "$package_aliases" ]; then
         echo -e "${GREEN}New aliases available:${NC}"
         echo "$package_aliases" | while read -r alias; do
@@ -365,12 +441,19 @@ run_package() {
     local platform=$(detect_platform)
     echo -e "${YELLOW}Detected platform: ${CYAN}$platform${NC}"
     
+    # Get package information with correct jq pathing
+    local package_json=$(jq -r "(.packages.extensions[], .packages.scripts[], .packages.apps[]) | select(.name == \"$package_name\")" "$packages_file")
+    if [ -z "$package_json" ]; then
+        echo -e "${RED}ERROR: Package ${CYAN}$package_name${RED} not found in registry!${NC}"
+        return 1
+    fi
+    
     # Get run commands for the current platform
-    local run_commands=$(jq -r ".packages[] | select(.name == \"$package_name\") | .commands.$platform[]" "$packages_file" 2>/dev/null)
+    local run_commands=$(echo "$package_json" | jq -r ".commands.$platform[] // empty")
     
     # If platform-specific commands not found, try to use generic commands
     if [ -z "$run_commands" ]; then
-        run_commands=$(jq -r ".packages[] | select(.name == \"$package_name\") | .commands[]" "$packages_file" 2>/dev/null)
+        run_commands=$(echo "$package_json" | jq -r ".commands[] // empty")
     fi
     
     if [ -z "$run_commands" ]; then
@@ -410,10 +493,30 @@ uninstall_package() {
     local package_name="$1"
     local package_dir="$ARAISE_DIR/packages/$package_name"
     local ext_dir="$ARAISE_DIR/extensions/$package_name"
-    local script_dir="$ARAISE_DIR/scripts/$package_name"
+    
+    # Get package information to find the correct script directory and files
+    local packages_file="$ARAISE_DIR/packages.json"
+    if [ ! -f "$packages_file" ]; then
+        echo -e "${RED}ERROR: Package registry not found!${NC}"
+        return 1
+    fi
+
+    local package_json=$(jq -r "(.packages.extensions[], .packages.scripts[], .packages.apps[]) | select(.name == \"$package_name\")" "$packages_file")
+    if [ -z "$package_json" ]; then
+        echo -e "${RED}ERROR: Package ${CYAN}$package_name${RED} not found in registry!${NC}"
+        return 1
+    fi
+
+    local package_type=$(echo "$package_json" | jq -r ".type")
+    local repo_url=$(echo "$package_json" | jq -r ".repo")
+    local repo_name=$(basename "$repo_url" .git)
+    local safe_repo_name=$(echo "$repo_name" | tr ' ' '_')
+    local script_dir="$ARAISE_DIR/scripts/$safe_repo_name"
+    local main_script=$(echo "$package_json" | jq -r ".main_script // empty")
+    local path_inside_repo=$(echo "$package_json" | jq -r ".path // \".\"")
     
     local found=false
-    
+
     if [ -d "$package_dir" ]; then
         echo -e "${YELLOW}Uninstalling package ${CYAN}$package_name${NC}"
         rm -rf "$package_dir"
@@ -426,14 +529,28 @@ uninstall_package() {
         found=true
     fi
     
-    if [ -d "$script_dir" ]; then
+    if [ "$package_type" = "script" ] && [ -d "$script_dir" ]; then
         echo -e "${YELLOW}Uninstalling script ${CYAN}$package_name${NC}"
-        rm -rf "$script_dir"
+        # Only remove the main_script file for this package
+        if [ -n "$main_script" ]; then
+            if [ "$path_inside_repo" = "." ]; then
+                rm -f "$script_dir/$main_script"
+            else
+                rm -f "$script_dir/$path_inside_repo/$main_script"
+            fi
+        elif [ "$path_inside_repo" != "." ]; then
+            rm -rf "$script_dir/$path_inside_repo"
+        fi
+        # If the script directory is now empty, remove it
+        if [ -d "$script_dir" ] && [ -z "$(ls -A "$script_dir" 2>/dev/null)" ]; then
+            rm -rf "$script_dir"
+        fi
         found=true
-        
-        # Remove global aliases
-        remove_global_aliases "$package_name"
     fi
+    
+    # Always attempt to remove global aliases, regardless of package type or file presence
+    echo -e "${CYAN}Removing global aliases for ${CYAN}$package_name${NC}"
+    remove_global_aliases "$package_name"
     
     if [ "$found" = false ]; then
         echo -e "${RED}ERROR: Package ${CYAN}$package_name${RED} not installed!${NC}"
@@ -441,7 +558,7 @@ uninstall_package() {
     fi
     
     echo -e "${GREEN}SUCCESS: Package uninstalled successfully!${NC}"
-    echo -e "${YELLOW}Note: You may need to manually check your shell configuration file for any remaining aliases${NC}"
+    echo -e "${YELLOW}Please restart your terminal or run 'source /etc/profile' (or your shell config) for changes to take effect.${NC}"
 }
 
 # Updated browser extension installer
@@ -568,37 +685,54 @@ detect_shell_config() {
     esac
 }
 
-# Function to add global aliases
 add_global_aliases() {
     local package_name="$1"
-    local script_dir="$ARAISE_DIR/scripts/$package_name"
     local shell_config=$(detect_shell_config)
     local packages_file="$ARAISE_DIR/packages.json"
     
-    # Get package information
-    local package_json=$(jq -r ".packages[] | select(.name == \"$package_name\")" "$packages_file")
+    # First, remove any existing aliases for this package to prevent duplicates
+    remove_global_aliases "$package_name"
+    
+    # Correct jq pathing (as per P1 fix)
+    local package_json=$(jq -r "(.packages.extensions[], .packages.scripts[], .packages.apps[]) | select(.name == \"$package_name\")" "$packages_file")
     local aliases=$(echo "$package_json" | jq -r '.aliases[] // empty')
+    local type=$(echo "$package_json" | jq -r '.type // empty')
     local main_script=$(echo "$package_json" | jq -r '.main_script // empty')
     
     if [ -z "$aliases" ]; then
         return 0
     fi
-    
-    # Create a temporary file for the aliases
+
+    # Get the repository name and create safe directory name
+    local repo_url=$(echo "$package_json" | jq -r ".repo")
+    local repo_name=$(basename "$repo_url" .git)
+    local safe_repo_name=$(echo "$repo_name" | tr ' ' '_')
+    local script_dir="$ARAISE_DIR/scripts/$safe_repo_name"
+
+    # Ensure main_script is valid if it's a direct executable
+    local alias_target_cmd=""
+    if [ -n "$main_script" ] && [ -d "$script_dir" ]; then
+        # Properly quote the path to handle spaces
+        alias_target_cmd="\"$script_dir/$main_script\""
+    else
+        # Fallback to calling araise itself for non-script types or if main_script is missing
+        alias_target_cmd="araise run \"$package_name\""
+    fi
+
     local temp_file=$(mktemp)
     
-    # Add header comment
-    echo "# Araise Package Manager global aliases for $package_name" >> "$temp_file"
+    # Add clear start/end markers
+    echo -e "\n# >>> Araise Package Manager aliases for $package_name <<<" >> "$temp_file"
+    echo -e "# DO NOT EDIT THIS BLOCK MANUALLY - MANAGED BY ARAISE" >> "$temp_file"
     
-    # Add each alias
-    echo "$aliases" | while read -r alias; do
-        if [ -n "$alias" ]; then
-            # Create an alias that directly points to the script
-            echo "alias $alias='$script_dir/$main_script'" >> "$temp_file"
+    echo "$aliases" | while read -r alias_name; do
+        if [ -n "$alias_name" ]; then
+            # Properly quote the alias command to handle spaces
+            echo "alias $alias_name=$alias_target_cmd" >> "$temp_file"
         fi
     done
+    echo "# <<< Araise Package Manager aliases for $package_name >>>" >> "$temp_file"
     
-    # Append to shell config
     cat "$temp_file" >> "$shell_config"
     rm "$temp_file"
     
@@ -606,23 +740,38 @@ add_global_aliases() {
     echo -e "${YELLOW}Please run 'source $shell_config' to use the new aliases${NC}"
 }
 
-# Function to remove global aliases
+# In remove_global_aliases()
 remove_global_aliases() {
     local package_name="$1"
     local shell_config=$(detect_shell_config)
     
-    # Remove the alias block for this package
-    sed -i "/# Araise Package Manager global aliases for $package_name/,/^alias/d" "$shell_config"
-    sed -i "/^$/d" "$shell_config"  # Remove empty lines
-    
-    echo -e "${GREEN}Removed global aliases for ${CYAN}$package_name${NC} from ${YELLOW}$shell_config${NC}"
+    local start_marker="# >>> Araise Package Manager aliases for $package_name <<<"
+    local end_marker="# <<< Araise Package Manager aliases for $package_name >>>"
+
+    if [ -f "$shell_config" ]; then
+        # Use sed to delete lines between (and including) the markers
+        sed -i.bak "/$start_marker/,/$end_marker/d" "$shell_config" 2>/dev/null || true
+        # Also remove any potentially orphaned alias lines if markers weren't perfect or partial additions
+        sed -i.bak "/# Araise Package Manager alias for $package_name/d" "$shell_config" 2>/dev/null || true
+        # Remove any lingering empty lines that might have resulted from removals
+        sed -i.bak '/^$/d' "$shell_config" 2>/dev/null || true
+        rm -f "${shell_config}.bak" 2>/dev/null || true # Clean up backup file
+
+        echo -e "${GREEN}Removed global aliases for ${CYAN}$package_name${NC} from ${YELLOW}$shell_config${NC}"
+    else
+        echo -e "${YELLOW}Warning: Shell configuration file ${YELLOW}$shell_config${YELLOW} not found. Manual cleanup might be required.${NC}"
+    fi
 }
 
 # Updated install_script function
 install_script() {
     PACKAGE=$1
     JSON=$2
-    SCRIPT_DIR="$ARAISE_DIR/scripts/$PACKAGE"
+    # Use the repository name as the directory name, replacing spaces with underscores
+    local repo_url=$(echo "$JSON" | jq -r ".repo")
+    local repo_name=$(basename "$repo_url" .git)
+    local safe_repo_name=$(echo "$repo_name" | tr ' ' '_')
+    SCRIPT_DIR="$ARAISE_DIR/scripts/$safe_repo_name"
     mkdir -p "$SCRIPT_DIR"
     chmod 755 "$SCRIPT_DIR"
 
@@ -754,19 +903,13 @@ update_packages() {
         if jq empty "$temp_file" 2>/dev/null; then
             mv "$temp_file" "$target_file"
             echo -e "${GREEN}✓ Package registry updated successfully!${NC}"
-            local package_count=$(jq '[.packages.extensions[], .packages.scripts[], .packages.apps[]] | length' "$target_file")
-            echo -e "${GREEN}Found ${CYAN}$package_count${GREEN} packages in registry${NC}"
-            
-            # Update aliases after updating packages
-            echo -e "${CYAN}Updating aliases...${NC}"
-            update_aliases
-            update_system_aliases
-            local alias_count=$(jq '.aliases | length' "$ALIASES_FILE" 2>/dev/null || echo "0")
-            echo -e "${GREEN}Found ${CYAN}$alias_count${GREEN} aliases in registry${NC}"
+            local ext_count=$(jq '.packages.extensions | length' "$target_file")
+            local script_count=$(jq '.packages.scripts | length' "$target_file")
+            local app_count=$(jq '.packages.apps | length' "$target_file")
+            echo -e "${GREEN}Found:${NC} ${CYAN}$ext_count${NC} extension(s), ${CYAN}$script_count${NC} script(s), ${CYAN}$app_count${NC} app(s) in registry"
             
             echo -e "${CYAN}Use ${YELLOW}araise available${CYAN} to list available packages${NC}"
             echo -e "${CYAN}Use ${YELLOW}araise aliases${CYAN} to list available aliases${NC}"
-            echo -e "${YELLOW}Please restart your terminal or run 'source /etc/profile' to use the updated aliases${NC}"
             
             return 0
         else
@@ -818,10 +961,6 @@ handle_package_execution() {
         local package_name="$input_name"
     fi
     
-    local package_dir="$ARAISE_DIR/packages/$package_name"
-    local ext_dir="$ARAISE_DIR/extensions/$package_name"
-    local script_dir="$ARAISE_DIR/scripts/$package_name"
-    
     if [ ! -f "$packages_file" ]; then
         echo -e "${YELLOW}Package registry not found${NC}"
         echo -e "${CYAN}Please run '${GREEN}araise update${CYAN}' to update the registry${NC}"
@@ -855,7 +994,22 @@ handle_package_execution() {
         fi
     fi
 
-    # Check what type of package is installed and run accordingly
+    # Get package information to find the correct directories
+    local package_json=$(jq -r "(.packages.extensions[], .packages.scripts[], .packages.apps[]) | select(.name == \"$package_name\")" "$packages_file")
+    if [ -z "$package_json" ]; then
+        echo -e "${RED}ERROR: Package ${CYAN}$package_name${RED} not found in registry!${NC}"
+        return 1
+    fi
+
+    local package_dir="$ARAISE_DIR/packages/$package_name"
+    local ext_dir="$ARAISE_DIR/extensions/$package_name"
+    
+    # For scripts, get the repository-based directory
+    local repo_url=$(echo "$package_json" | jq -r ".repo")
+    local repo_name=$(basename "$repo_url" .git)
+    local safe_repo_name=$(echo "$repo_name" | tr ' ' '_')
+    local script_dir="$ARAISE_DIR/scripts/$safe_repo_name"
+    
     if [ -d "$package_dir" ]; then
         run_package "$package_name" "${args[@]}"
     elif [ -d "$script_dir" ]; then
@@ -870,9 +1024,9 @@ handle_package_execution() {
             install_package "$package_name"
             if [ $? -eq 0 ]; then
                 # Try to run it after installation
-                if [ -d "$ARAISE_DIR/packages/$package_name" ]; then
+                if [ -d "$package_dir" ]; then
                     run_package "$package_name" "${args[@]}"
-                elif [ -d "$ARAISE_DIR/scripts/$package_name" ]; then
+                elif [ -d "$script_dir" ]; then
                     run_script "$package_name" "${args[@]}"
                 fi
             fi
@@ -888,21 +1042,32 @@ run_script() {
     local script_name="$1"
     shift  # Remove the script name from arguments
     local script_args=("$@")  # Store remaining arguments
-    local script_dir="$ARAISE_DIR/scripts/$script_name"
     
-    if [ ! -d "$script_dir" ]; then
-        echo -e "${RED}ERROR: Script ${CYAN}$script_name${RED} not installed!${NC}"
-        return 1
-    fi
-    
+    # Get the repository name from packages.json
     local packages_file="$ARAISE_DIR/packages.json"
     if [ ! -f "$packages_file" ]; then
         echo -e "${RED}ERROR: Package registry not found!${NC}"
         return 1
     fi
     
-    # Get script information
-    local script_json=$(jq -r ".packages[] | select(.name == \"$script_name\")" "$packages_file")
+    # Get script information with correct jq pathing
+    local script_json=$(jq -r "(.packages.extensions[], .packages.scripts[], .packages.apps[]) | select(.name == \"$script_name\")" "$packages_file")
+    if [ -z "$script_json" ]; then
+        echo -e "${RED}ERROR: Script ${CYAN}$script_name${RED} not found in registry!${NC}"
+        return 1
+    fi
+    
+    # Get the repository name and create safe directory name
+    local repo_url=$(echo "$script_json" | jq -r ".repo")
+    local repo_name=$(basename "$repo_url" .git)
+    local safe_repo_name=$(echo "$repo_name" | tr ' ' '_')
+    local script_dir="$ARAISE_DIR/scripts/$safe_repo_name"
+    
+    if [ ! -d "$script_dir" ]; then
+        echo -e "${RED}ERROR: Script ${CYAN}$script_name${RED} not installed!${NC}"
+        return 1
+    fi
+    
     local main_script=$(echo "$script_json" | jq -r ".main_script // empty")
     local run_command=$(echo "$script_json" | jq -r ".run_command // empty")
     
@@ -1024,7 +1189,6 @@ case "$1" in
     "update") update_packages ;;
     "available") show_available_packages ;;
     "aliases") list_aliases ;;
-    "test") run_tests ;;
     "uninstall-araise") uninstall_araise ;;
-*) handle_package_execution "$@" ;;
+    *) handle_package_execution "$@" ;;
 esac

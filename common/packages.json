@@ -10,7 +10,7 @@
             "firefox": {
               "repo": "https://github.com/Araise25/YSB",
               "path": ".",
-              "link": "https://addons.mozilla.org/en-US/firefox/addon/youtube-sidebar/"
+              "link": "https://addons.mozilla.org/en-US/developers/addon/ysb/"
             }
           },
           "author": "Araise25",

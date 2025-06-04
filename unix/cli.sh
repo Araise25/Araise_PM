@@ -684,8 +684,8 @@ show_available_packages() {
         return 1
     fi
     
-    # Get package count
-    local package_count=$(jq '.packages | length' "$packages_file")
+    # Get total package count across all categories
+    local package_count=$(jq '[.packages.extensions[], .packages.scripts[], .packages.apps[]] | length' "$packages_file")
     
     if [ "$package_count" -eq 0 ]; then
         echo -e "${YELLOW}Package registry is empty${NC}"
@@ -693,10 +693,24 @@ show_available_packages() {
     fi
 
     echo -e "\n${BOLD}Available packages:${NC}"
-    # Sort packages alphabetically and show with descriptions, types, and aliases
-    jq -r '.packages | sort_by(.name | ascii_upcase) | .[] | 
-        "\u001b[32m* \u001b[1m\(.name)\u001b[0m (\(.type)) - \(.description)" + 
-        (if .aliases then "\n  \u001b[33mAliases: \u001b[36m" + (.aliases | join(", ")) + "\u001b[0m" else "" end)' "$packages_file"
+    
+    # Show extensions
+    echo -e "\n${BOLD}${BLUE}Extensions:${NC}"
+    jq -r '.packages.extensions[] | 
+        "\u001b[32m* \u001b[1m\(.name)\u001b[0m - \(.description)" + 
+        (if .aliases then "\n  \u001b[33mAliases: \u001b[36m" + (.aliases | join(", ")) + "\u001b[0m" else "" end)' "$packages_file" 2>/dev/null || echo "  No extensions available"
+    
+    # Show scripts
+    echo -e "\n${BOLD}${MAGENTA}Scripts:${NC}"
+    jq -r '.packages.scripts[] | 
+        "\u001b[32m* \u001b[1m\(.name)\u001b[0m - \(.description)" + 
+        (if .aliases then "\n  \u001b[33mAliases: \u001b[36m" + (.aliases | join(", ")) + "\u001b[0m" else "" end)' "$packages_file" 2>/dev/null || echo "  No scripts available"
+    
+    # Show apps
+    echo -e "\n${BOLD}${YELLOW}Applications:${NC}"
+    jq -r '.packages.apps[] | 
+        "\u001b[32m* \u001b[1m\(.name)\u001b[0m - \(.description)" + 
+        (if .aliases then "\n  \u001b[33mAliases: \u001b[36m" + (.aliases | join(", ")) + "\u001b[0m" else "" end)' "$packages_file" 2>/dev/null || echo "  No applications available"
     
     echo -e "${CYAN}------------------------------------------${NC}"
 }
@@ -734,7 +748,7 @@ update_packages() {
         if jq empty "$temp_file" 2>/dev/null; then
             mv "$temp_file" "$target_file"
             echo -e "${GREEN}✓ Package registry updated successfully!${NC}"
-            local package_count=$(jq '.packages | length' "$target_file")
+            local package_count=$(jq '[.packages.extensions[], .packages.scripts[], .packages.apps[]] | length' "$target_file")
             echo -e "${GREEN}Found ${CYAN}$package_count${GREEN} packages in registry${NC}"
             
             # Update aliases after updating packages

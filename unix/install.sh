@@ -49,15 +49,8 @@ get_cli_scripts() {
     echo -e "${YELLOW}Downloading CLI scripts from repository...${NC}"
     if command -v curl &> /dev/null; then
         if curl -fsSL "${cli_url}/unix/cli.sh" > "$ARAISE_DIR/cli.sh" && \
-           curl -fsSL "${cli_url}/unix/uninstall.sh" > "$ARAISE_DIR/uninstall.sh"; then
             success=true
         fi
-    elif command -v wget &> /dev/null; then
-        if wget -q -O "$ARAISE_DIR/cli.sh" "${cli_url}/unix/cli.sh" && \
-           wget -q -O "$ARAISE_DIR/uninstall.sh" "${cli_url}/unix/uninstall.sh"; then
-            success=true
-        fi
-    fi
 
     if [ "$success" = true ]; then
         return 0
@@ -99,7 +92,6 @@ install_unix() {
     fi
 
     chmod +x "$ARAISE_DIR/cli.sh"
-    chmod +x "$ARAISE_DIR/uninstall.sh"
 
     # Download and install man page
     echo "Installing man page..."
@@ -123,7 +115,6 @@ install_unix() {
 
 
     ln -sf "$ARAISE_DIR/cli.sh" "$BIN_DIR/araise"
-    ln -sf "$ARAISE_DIR/uninstall.sh" "$BIN_DIR/uninstall-araise"
 
     SHELL_CONFIG=$(detect_shell_config)
     if [ -n "$SHELL_CONFIG" ]; then

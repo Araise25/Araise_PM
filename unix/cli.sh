@@ -34,7 +34,7 @@ show_help() {
     echo -e "  ${GREEN}araise${NC} ${YELLOW}available${NC}            ${NC}- Show available packages"
     echo -e "  ${GREEN}araise${NC} ${YELLOW}aliases${NC}              ${NC}- List all aliases"
     echo -e "  ${GREEN}araise${NC} ${YELLOW}help${NC}                 ${NC}- Show this help message"
-    echo -e "  ${RED}uninstall-araise${NC}             - Uninstall Araise"
+    echo -e "  ${GREEN}araise${NC} ${RED}uninstall-araise${NC}      - Uninstall Araise"
     echo -e "${CYAN}------------------------------------------${NC}"
     echo -e "${BOLD}${YELLOW}Alias Support:${NC}"
     echo -e "  Packages can define aliases in packages.json"
@@ -1115,27 +1115,37 @@ uninstall_araise() {
     echo -e "${YELLOW}Uninstalling Araise Package Manager...${NC}"
 
     # Remove Araise entries from user's shell configs
-    local shell_configs=("$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.zprofile")
+    local shell_configs=("$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.zprofile" "$HOME/.config/fish/config.fish")
     for config in "${shell_configs[@]}"; do
         if [ -f "$config" ]; then
             echo -e "${CYAN}Removing Araise entries from ${YELLOW}$config${NC}"
-            sed -i.bak '/# Araise Package Manager/d' "$config" 2>/dev/null || true
-            sed -i.bak '/alias araise=/d' "$config" 2>/dev/null || true
-            sed -i.bak '/export PATH="$PATH:$HOME\/.araise\/bin"/d' "$config" 2>/dev/null || true
-            rm -f "${config}.bak" 2>/dev/null || true
+            # Create a backup of the config file
+            cp "$config" "${config}.araise.bak" 2>/dev/null || true
+            # Remove Araise-related lines
+            sed -i '/# >>> Araise Package Manager/,/# <<< Araise Package Manager/d' "$config" 2>/dev/null || true
+            sed -i '/# Araise Package Manager/d' "$config" 2>/dev/null || true
+            sed -i '/alias araise=/d' "$config" 2>/dev/null || true
+            sed -i '/export PATH="$PATH:$HOME\/.araise\/bin"/d' "$config" 2>/dev/null || true
+            sed -i '/export PATH="$PATH:$HOME\/.local\/bin"/d' "$config" 2>/dev/null || true
+            sed -i '/export MANPATH="$HOME\/.local\/share\/man:$MANPATH"/d' "$config" 2>/dev/null || true
         fi
     done
 
     # Remove Araise entries from system-wide configs (with sudo if needed)
-    local system_configs=("/etc/profile" "/etc/bash.bashrc")
+    local system_configs=("/etc/profile" "/etc/bash.bashrc" "/etc/zsh/zshrc")
     for config in "${system_configs[@]}"; do
         if [ -f "$config" ]; then
             echo -e "${CYAN}Removing Araise entries from ${YELLOW}$config${NC}"
             if [ -w "$config" ]; then
-                sed -i.bak '/# Araise Package Manager/d' "$config" 2>/dev/null || true
-                sed -i.bak '/alias araise=/d' "$config" 2>/dev/null || true
-                sed -i.bak '/export PATH="$PATH:\/usr\/local\/araise\/bin"/d' "$config" 2>/dev/null || true
-                rm -f "${config}.bak" 2>/dev/null || true
+                # Create a backup of the config file
+                cp "$config" "${config}.araise.bak" 2>/dev/null || true
+                # Remove Araise-related lines
+                sed -i '/# >>> Araise Package Manager/,/# <<< Araise Package Manager/d' "$config" 2>/dev/null || true
+                sed -i '/# Araise Package Manager/d' "$config" 2>/dev/null || true
+                sed -i '/alias araise=/d' "$config" 2>/dev/null || true
+                sed -i '/export PATH="$PATH:\/usr\/local\/araise\/bin"/d' "$config" 2>/dev/null || true
+                sed -i '/export PATH="$PATH:\/usr\/local\/bin"/d' "$config" 2>/dev/null || true
+                sed -i '/export MANPATH="\/usr\/local\/share\/man:$MANPATH"/d' "$config" 2>/dev/null || true
             else
                 echo -e "${YELLOW}Note: ${CYAN}$config${YELLOW} requires root access to modify${NC}"
                 echo -e "${YELLOW}You may need to manually remove Araise entries from this file${NC}"
@@ -1148,15 +1158,23 @@ uninstall_araise() {
     rm -rf "$ARAISE_DIR" 2>/dev/null || true
     rm -rf "$HOME/.local/bin/araise" 2>/dev/null || true
     rm -rf "$HOME/.local/bin/uninstall-araise" 2>/dev/null || true
+    rm -rf "$HOME/.local/share/man/man1/araise.1" 2>/dev/null || true
+    rm -rf "$HOME/.local/share/man/man1/araise.1.gz" 2>/dev/null || true
 
-    # Remove Araise man page
-    echo -e "${CYAN}Removing Araise man page${NC}"
-    rm -f "/usr/local/share/man/man1/araise.1" 2>/dev/null || true
-    rm -f "/usr/local/share/man/man1/araise.1.gz" 2>/dev/null || true
+    # Remove system-wide files if they exist
+    if [ -w "/usr/local/bin" ]; then
+        rm -f "/usr/local/bin/araise" 2>/dev/null || true
+        rm -f "/usr/local/bin/uninstall-araise" 2>/dev/null || true
+    fi
+    if [ -w "/usr/local/share/man/man1" ]; then
+        rm -f "/usr/local/share/man/man1/araise.1" 2>/dev/null || true
+        rm -f "/usr/local/share/man/man1/araise.1.gz" 2>/dev/null || true
+    fi
 
     echo -e "${GREEN}Araise Package Manager has been completely removed from your system${NC}"
     echo -e "${YELLOW}Please restart your terminal or run 'source ~/.bashrc' (or your shell config) for changes to take effect${NC}"
     echo -e "${YELLOW}Note: If you still see Araise aliases, you may need to manually check your shell configuration files${NC}"
+    echo -e "${YELLOW}Backup files have been created with .araise.bak extension in case you need to restore any changes${NC}"
 }
 
 # Main command handler

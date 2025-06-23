@@ -10,7 +10,7 @@
             "firefox": {
               "repo": "https://github.com/Araise25/YSB",
               "path": ".",
-              "link": "https://addons.mozilla.org/en-US/firefox/addon/youtube-sidebar/"
+              "link": "https://addons.mozilla.org/en-US/developers/addon/ysb/"
             }
           },
           "author": "Araise25",
@@ -20,14 +20,14 @@
       ],
       "scripts": [
         {
-          "name": "Kill Port",
+          "name": "Killport Plus",
           "type": "script",
-          "description": "Port Killer - A utility script to kill processes running on specific ports",
-          "aliases": ["killport"],
-          "repo": "https://github.com/Araise25/test_scripts.git",
-          "path": ".",
-          "main_script": "killport.sh",
-          "run_command": "bash killport.sh",
+          "description": "Enhanced port management with process info and confirmation",
+          "aliases": ["killport-plus"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/killport-plus.sh",
+          "run_command": "bash scripts/killport-plus.sh",
           "author": "Araise25",
           "license": "MIT",
           "tags": ["utility", "system", "port-management"],
@@ -37,19 +37,155 @@
           }
         },
         {
-          "name": "Test Script",
+          "name": "Zombie Killer",
           "type": "script",
-          "description": "Test Script - A utility script for testing purposes",
-          "aliases": ["test"],
-          "repo": "https://github.com/Araise25/test_scripts.git",
-          "path": ".",
-          "main_script": "test.sh",
-          "run_command": "bash test.sh",
+          "description": "Detect and terminate orphaned or zombie-like dev processes",
+          "aliases": ["zombie-killer"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/zombie-killer.sh",
+          "run_command": "bash scripts/zombie-killer.sh",
           "author": "Araise25",
           "license": "MIT",
-          "tags": ["utility", "testing"],
+          "tags": ["utility", "system", "process-management"],
           "dependencies": {
             "required": ["bash"],
+            "optional": []
+          }
+        },
+        {
+          "name": "Latency Check",
+          "type": "script",
+          "description": "Network latency diagnostics tool",
+          "aliases": ["latency-check"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/latency-check.sh",
+          "run_command": "bash scripts/latency-check.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "network", "diagnostics"],
+          "dependencies": {
+            "required": ["bash"],
+            "optional": []
+          }
+        },
+        {
+          "name": "Tail Highlight",
+          "type": "script",
+          "description": "Colorized log tailing",
+          "aliases": ["tail-highlight"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/tail-highlight.sh",
+          "run_command": "bash scripts/tail-highlight.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "logs", "monitoring"],
+          "dependencies": {
+            "required": ["bash"],
+            "optional": []
+          }
+        },
+        {
+          "name": "Guess Dependency Manager",
+          "type": "script",
+          "description": "Smart dependency manager detection",
+          "aliases": ["guess-dependency-manager"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/guess-dependency-manager.sh",
+          "run_command": "bash scripts/guess-dependency-manager.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "development", "dependency-management"],
+          "dependencies": {
+            "required": ["bash"],
+            "optional": []
+          }
+        },
+        {
+          "name": "Build Cache Manager",
+          "type": "script",
+          "description": "Build cache management for various build systems",
+          "aliases": ["build-cache-manager"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/build-cache-manager.sh",
+          "run_command": "bash scripts/build-cache-manager.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "development", "build-tools"],
+          "dependencies": {
+            "required": ["bash"],
+            "optional": []
+          }
+        },
+        {
+          "name": "Postmortem",
+          "type": "script",
+          "description": "Collect system state after crashes",
+          "aliases": ["postmortem"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/postmortem.sh",
+          "run_command": "bash scripts/postmortem.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "system", "diagnostics"],
+          "dependencies": {
+            "required": ["bash"],
+            "optional": []
+          }
+        },
+        {
+          "name": "SSH Key Manager",
+          "type": "script",
+          "description": "Manage SSH keys for different services",
+          "aliases": ["ssh-key-manager"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/ssh-key-manager.sh",
+          "run_command": "bash scripts/ssh-key-manager.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "security", "ssh"],
+          "dependencies": {
+            "required": ["bash"],
+            "optional": []
+          }
+        },
+        {
+          "name": "Book",
+          "type": "script",
+          "description": "Command bookmarking utility",
+          "aliases": ["book"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/book.sh",
+          "run_command": "bash scripts/book.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "productivity", "command-line"],
+          "dependencies": {
+            "required": ["bash"],
+            "optional": []
+          }
+        },
+        {
+          "name": "Stash Manager",
+          "type": "script",
+          "description": "Git stash management",
+          "aliases": ["stash-manager"],
+          "repo": "https://github.com/Araise25/WTF-Tools.git",
+          "path": "scripts",
+          "main_script": "scripts/stash-manager.sh",
+          "run_command": "bash scripts/stash-manager.sh",
+          "author": "Araise25",
+          "license": "MIT",
+          "tags": ["utility", "git", "version-control"],
+          "dependencies": {
+            "required": ["bash", "git"],
             "optional": []
           }
         }

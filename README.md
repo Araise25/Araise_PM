@@ -5,14 +5,17 @@ Araise is a cross-platform package manager designed to simplify the installation
 ## ⚡️ Quick Installation
 
 ### Linux/macOS
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Araise25/Araise_PM/main/unix/install.sh | bash
 ```
 
 ### Windows Users
+
 For Windows users, we recommend using Windows Subsystem for Linux (WSL) to run Araise. Follow these steps:
 
 1. Install WSL by opening PowerShell as Administrator and running:
+
 ```powershell
 wsl --install
 ```
@@ -24,6 +27,7 @@ wsl --install
 After installation, either restart your terminal or:
 
 ### Linux/macOS/WSL
+
 ```bash
 source ~/.bashrc    # For Bash
 source ~/.zshrc     # For Zsh
@@ -54,9 +58,28 @@ araise update
 araise <package-name>
 ```
 
+### 💡 Pro Tip: Global Aliases
+
+We recommend installing scripts using `araise install "scriptname"` or `araise install alias` as they will create global aliases for easy access. This allows you to run scripts directly from anywhere in your terminal without the `araise` prefix.
+
+Example:
+
+```bash
+# Install using package name or alias
+araise install "Latency Check"
+araise install latency-check
+
+# After installation, you can run directly:
+latency-check
+# Or if you need, you can always run:
+araise latency-check
+araise "Latency Check"
+```
+
 ## 🛠 System Requirements
 
 ### Linux/macOS/WSL
+
 - Bash or Zsh shell
 - Git
 - curl or wget
@@ -65,6 +88,7 @@ araise <package-name>
 ## 🔄 Package Management
 
 ### Package Structure
+
 ```json
 {
   "name": "package-name",
@@ -86,6 +110,7 @@ araise <package-name>
 ## 🔧 Troubleshooting
 
 ### Linux/macOS/WSL
+
 ```bash
 # Fix permissions
 chmod +x ~/.araise/bin/araise
@@ -99,6 +124,7 @@ source ~/.bashrc
 ## 🗑 Uninstallation
 
 ### Linux/macOS/WSL
+
 ```bash
 uninstall-araise
 ```

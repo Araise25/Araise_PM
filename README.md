@@ -1,8 +1,8 @@
-# 🔮 Araise Package Manager
+# Araise Package Manager
 
 Araise is a cross-platform package manager designed to simplify the installation and management of software packages, applications, and development tools.
 
-## ⚡️ Quick Installation
+## Quick Installation
 
 ### Linux/macOS
 
@@ -22,7 +22,7 @@ wsl --install
 
 2. After WSL installation and restart, open your WSL terminal and run the Linux installation command above.
 
-## 🚀 Getting Started
+## Getting Started
 
 After installation, either restart your terminal or:
 
@@ -33,7 +33,7 @@ source ~/.bashrc    # For Bash
 source ~/.zshrc     # For Zsh
 ```
 
-## 📚 Basic Commands
+## Basic Commands
 
 ```bash
 # Show help
@@ -58,7 +58,7 @@ araise update
 araise <package-name>
 ```
 
-### 💡 Pro Tip: Global Aliases
+### Pro Tip: Global Aliases
 
 We recommend installing scripts using `araise install "scriptname"` or `araise install alias` as they will create global aliases for easy access. This allows you to run scripts directly from anywhere in your terminal without the `araise` prefix.
 
@@ -76,7 +76,7 @@ araise latency-check
 araise "Latency Check"
 ```
 
-## 🛠 System Requirements
+## System Requirements
 
 ### Linux/macOS/WSL
 
@@ -85,7 +85,7 @@ araise "Latency Check"
 - curl or wget
 - Internet connection
 
-## 🔄 Package Management
+## Package Management
 
 ### Package Structure
 
@@ -107,7 +107,7 @@ araise "Latency Check"
 2. Add your package to `common/packages.json`
 3. Submit a pull request
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Linux/macOS/WSL
 
@@ -121,7 +121,7 @@ echo 'export PATH="$PATH:$HOME/.araise/bin"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-## 🗑 Uninstallation
+## Uninstallation
 
 ### Linux/macOS/WSL
 
@@ -129,13 +129,13 @@ source ~/.bashrc
 uninstall-araise
 ```
 
-## 🔒 Security
+## Security
 
 - All installation scripts are hosted on verified GitHub repositories
 - Package signatures are verified before installation
 - Dependencies are checked for known vulnerabilities
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -143,17 +143,16 @@ uninstall-araise
 4. Push to the branch
 5. Submit a pull request
 
-## 📜 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🌟 Support
+## Support
 
 - Report issues on [GitHub Issues](https://github.com/Araise25/Araise_PM/issues)
-- Join our [Discord Community](https://discord.gg/araise)
-- Follow updates on [Twitter](https://twitter.com/araise)
+- Follow updates on [Twitter](https://x.com/AraiseAi)
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Contributors and maintainers
 - Open source community
